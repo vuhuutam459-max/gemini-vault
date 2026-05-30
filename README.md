@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="banner.jpg" alt="Gemini Vault" width="100%">
+</p>
+
 # Gemini Vault
 
 > Full local backup and offline viewer for your Google Gemini chats.
