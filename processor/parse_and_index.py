@@ -21,6 +21,13 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Multi-source adapters (ChatGPT/Claude → canonical). Works whether this file
+# is run as a script (processor/ on sys.path) or imported as a package.
+try:
+    from importers import normalize as _normalize_export
+except ImportError:  # pragma: no cover
+    from processor.importers import normalize as _normalize_export
+
 # ── Paths ──
 BASE_DIR = Path(__file__).resolve().parent.parent
 DB_PATH = BASE_DIR / "gemini_vault.db"
@@ -46,6 +53,7 @@ CREATE TABLE IF NOT EXISTS conversations (
     message_count INTEGER DEFAULT 0,
     canvas_count  INTEGER DEFAULT 0,
     import_hash  TEXT,
+    source       TEXT DEFAULT 'gemini',
     UNIQUE(id, account_id)
 );
 
@@ -128,6 +136,11 @@ def init_db(db_path: Path) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.executescript(SCHEMA_SQL)
+    # Backward-compat migration: add 'source' to databases created before
+    # multi-source support (CREATE TABLE IF NOT EXISTS won't add columns).
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(conversations)")]
+    if "source" not in cols:
+        conn.execute("ALTER TABLE conversations ADD COLUMN source TEXT DEFAULT 'gemini'")
     conn.commit()
     return conn
 
@@ -170,20 +183,22 @@ def import_conversation(
 
     created = ts_to_iso(conv.get("created_time"))
     updated = ts_to_iso(conv.get("updated_time"))
+    source = conv.get("source", "gemini")
 
     # Upsert conversation
     conn.execute("""
         INSERT INTO conversations (id, account_id, title, created_time, updated_time,
-                                   message_count, canvas_count, import_hash)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                   message_count, canvas_count, import_hash, source)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             title = excluded.title,
             updated_time = excluded.updated_time,
             message_count = excluded.message_count,
             canvas_count = excluded.canvas_count,
-            import_hash = excluded.import_hash
+            import_hash = excluded.import_hash,
+            source = excluded.source
     """, (conv_id, account_id, title, created, updated,
-          len(messages), len(canvas), content_hash))
+          len(messages), len(canvas), content_hash, source))
 
     # Delete old messages (overwrite)
     conn.execute("DELETE FROM messages WHERE conversation_id = ?", (conv_id,))
@@ -233,7 +248,11 @@ def save_canvas_file(conv_id: str, art_id: str, artifact: dict) -> None:
 def process_export_file(conn: sqlite3.Connection, filepath: Path) -> dict:
     """Processes a single export JSON file. Returns statistics."""
     with open(filepath, "r", encoding="utf-8") as f:
-        data = json.load(f)
+        raw = json.load(f)
+
+    # Normalize ChatGPT/Claude exports to canonical form. A file already in
+    # canonical (Gemini Vault) form is returned unchanged.
+    data = _normalize_export(raw)
 
     meta = data.get("export_metadata", {})
     email = meta.get("account_email", "unknown")
