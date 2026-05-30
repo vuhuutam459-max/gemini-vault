@@ -1,0 +1,71 @@
+# ───────────────────────────────────────────────────────────
+#  Gemini Vault — .gitignore
+#  IMPORTANT: this file protects your PERSONAL data from being
+#  committed to a public repository. Don't remove the rules below.
+# ───────────────────────────────────────────────────────────
+
+# === Personal data (NEVER commit) ===
+gemini_vault.db
+gemini_vault.db-wal
+gemini_vault.db-shm
+gemini_vault.db-journal
+
+# Export dumps with real chats.
+# The demo file is the only exception (it is anonymized).
+Source_Accounts/*
+!Source_Accounts/demo_export.json
+
+# Saved Canvas artifacts (real chat content)
+Canvas_Files/
+
+# Manifest contains real emails and paths
+export_manifest.json
+
+# Migration cookies — account secrets
+cookies*.txt
+cookies*.json
+*.cookies
+
+# Google Takeout archives
+*.zip
+takeout*/
+
+# === Logs and temporary diagnostic files ===
+.scraper_log.txt
+.canvas_*.txt
+.db_stats.txt
+.final_stats.txt
+.investigate.txt
+.syntax_check.txt
+.date_coverage.txt
+*.log
+
+# === Tooling artifacts ===
+.playwright-mcp/
+_take_screenshot.ps1
+_rt_test.py
+
+# Persistent browser profile created by the Playwright scraper.
+# Contains cookies, sessions and other personal browser data — NEVER commit.
+.browser_profile/
+*.indexeddb.leveldb/
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# === User-exported archives ===
+exports/
+*.vault.zip
+
+# === OS / editors ===
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

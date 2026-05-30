@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gemini Vault — Viewer</title>
+
+  <!-- Tailwind CSS (CDN -> local fallback) -->
+  <script src="lib/tailwind.js" onerror="this.src='https://cdn.tailwindcss.com'"></script>
+  <!-- KaTeX for LaTeX -->
+  <link rel="stylesheet" href="lib/katex.min.css" onerror="this.href='https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css'">
+  <script src="lib/katex.min.js" onerror="this.src='https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js'"></script>
+  <script src="lib/auto-render.min.js" onerror="this.src='https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js'"></script>
+  <!-- highlight.js for code -->
+  <link rel="stylesheet" href="lib/highlight.min.css" onerror="this.href='https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css'">
+  <script src="lib/highlight.min.js" onerror="this.src='https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js'"></script>
+  <!-- marked.js for Markdown -->
+  <script src="lib/marked.min.js" onerror="this.src='https://cdn.jsdelivr.net/npm/marked/marked.min.js'"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0f0f17; color: #e0e0ef; font-family: 'Segoe UI', system-ui, sans-serif; }
+
+    /* Sidebar */
+    #sidebar {
+      width: 340px; min-width: 280px; max-width: 400px;
+      background: #16161e; border-right: 1px solid #2a2a3a;
+      display: flex; flex-direction: column; height: 100vh;
+    }
+    #sidebar-header { padding: 16px; border-bottom: 1px solid #2a2a3a; }
+    #sidebar-header h1 { font-size: 18px; font-weight: 700; color: #7aa2f7; margin: 0 0 12px; }
+    #account-select {
+      width: 100%; padding: 8px 12px; background: #1a1a2e; color: #c0caf5;
+      border: 1px solid #3b3b52; border-radius: 8px; font-size: 13px;
+    }
+    #chat-filter {
+      width: 100%; padding: 10px 14px; background: #1a1a2e; color: #c0caf5;
+      border: none; border-bottom: 1px solid #2a2a3a; font-size: 13px;
+      outline: none;
+    }
+    #chat-filter::placeholder { color: #565f89; }
+    #chat-list {
+      flex: 1; overflow-y: auto; padding: 4px 0;
+    }
+    .chat-item {
+      padding: 10px 16px; cursor: pointer; border-bottom: 1px solid #1e1e2e;
+      transition: background 0.15s;
+    }
+    .chat-item:hover { background: #1e2030; }
+    .chat-item.active { background: #24283b; border-left: 3px solid #7aa2f7; }
+    .chat-item-title {
+      font-size: 13px; font-weight: 500; color: #c0caf5;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .chat-item-meta { font-size: 11px; color: #565f89; margin-top: 2px; }
+
+    /* Main */
+    #main {
+      flex: 1; display: flex; flex-direction: column; height: 100vh;
+      background: #0f0f17;
+    }
+    #main-header {
+      padding: 14px 24px; border-bottom: 1px solid #2a2a3a;
+      display: flex; align-items: center; gap: 16px; background: #13131b;
+    }
+    #conv-title { font-size: 16px; font-weight: 600; color: #c0caf5; flex: 1; }
+    #search-global {
+      padding: 8px 14px; width: 320px; background: #1a1a2e; color: #c0caf5;
+      border: 1px solid #3b3b52; border-radius: 8px; font-size: 13px; outline: none;
+    }
+    #search-global:focus { border-color: #7aa2f7; }
+    #search-global::placeholder { color: #565f89; }
+
+    #lang-toggle {
+      padding: 6px 10px; background: #1a1a2e; border: 1px solid #3b3b52;
+      border-radius: 8px; color: #7aa2f7; font-size: 12px; cursor: pointer; font-weight: 600;
+    }
+    #lang-toggle:hover { border-color: #7aa2f7; }
+
+    #messages-container {
+      flex: 1; overflow-y: auto; padding: 24px;
+    }
+
+    /* Messages */
+    .message {
+      max-width: 800px; margin: 0 auto 20px; padding: 16px 20px;
+      border-radius: 12px; line-height: 1.6;
+    }
+    .message.user {
+      background: #1a1b26; border: 1px solid #292e42;
+      border-left: 3px solid #7aa2f7;
+    }
+    .message.model {
+      background: #16161e; border: 1px solid #222236;
+      border-left: 3px solid #9ece6a;
+    }
+    .message-role {
+      font-size: 12px; font-weight: 700;
+      letter-spacing: 0.03em; margin-bottom: 10px;
+      display: flex; align-items: center;
+    }
+    .message.user .message-role { color: #7aa2f7; }
+    .message.model .message-role { color: #9ece6a; }
+    .message-content {
+      font-size: 14px; word-wrap: break-word;
+    }
+    .message-content pre {
+      background: #1a1b26; border: 1px solid #292e42; border-radius: 8px;
+      padding: 12px; overflow-x: auto; margin: 8px 0;
+    }
+    .message-content code {
+      font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 13px;
+    }
+    .message-content p { margin: 6px 0; }
+    .message-content ul, .message-content ol { padding-left: 20px; }
+    .message-content h1, .message-content h2, .message-content h3 {
+      color: #c0caf5; margin: 12px 0 6px;
+    }
+    .message-content table {
+      border-collapse: collapse; width: 100%; margin: 8px 0;
+    }
+    .message-content th, .message-content td {
+      border: 1px solid #3b3b52; padding: 6px 10px; text-align: left;
+    }
+    .message-content th { background: #1a1b26; color: #7aa2f7; }
+    .message-content mark { background: #e0af68; color: #1a1b26; padding: 0 2px; border-radius: 2px; }
+    .message-content img { max-width: 100%; border-radius: 8px; }
+    .message-content a { color: #7aa2f7; text-decoration: underline; }
+
+    /* Canvas button */
+    .canvas-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; margin-top: 8px;
+      background: #24283b; border: 1px solid #3b3b52; border-radius: 8px;
+      color: #bb9af7; font-size: 12px; cursor: pointer; transition: all 0.2s;
+    }
+    .canvas-btn:hover { background: #292e42; border-color: #bb9af7; }
+
+    /* Canvas overlay */
+    #canvas-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7); z-index: 1000; display: none;
+      align-items: center; justify-content: center;
+    }
+    #canvas-overlay.visible { display: flex; }
+    #canvas-panel {
+      width: 80%; max-width: 900px; max-height: 85vh;
+      background: #1a1b26; border: 1px solid #3b3b52; border-radius: 12px;
+      overflow: hidden; display: flex; flex-direction: column;
+    }
+    #canvas-header {
+      padding: 14px 20px; border-bottom: 1px solid #2a2a3a;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    #canvas-header h3 { margin: 0; color: #bb9af7; font-size: 15px; }
+    #canvas-close {
+      cursor: pointer; color: #565f89; font-size: 20px; padding: 0 8px;
+    }
+    #canvas-close:hover { color: #f7768e; }
+    #canvas-content {
+      flex: 1; overflow-y: auto; padding: 24px;
+      font-size: 14px; line-height: 1.7;
+    }
+
+    /* Search results */
+    .search-result {
+      max-width: 800px; margin: 0 auto 16px; padding: 14px 18px;
+      background: #1a1b26; border: 1px solid #292e42; border-radius: 10px;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .search-result:hover { border-color: #7aa2f7; }
+    .search-result-title { font-size: 13px; font-weight: 600; color: #7aa2f7; }
+    .search-result-snippet { font-size: 13px; color: #a9b1d6; margin-top: 4px; }
+    .search-result-meta { font-size: 11px; color: #565f89; margin-top: 4px; }
+
+    /* Status bar */
+    #status-bar {
+      padding: 8px 24px; border-top: 1px solid #2a2a3a; background: #13131b;
+      font-size: 11px; color: #565f89; display: flex; justify-content: space-between;
+    }
+
+    /* Welcome screen */
+    #welcome {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; color: #565f89;
+    }
+    #welcome h2 { font-size: 24px; color: #7aa2f7; margin-bottom: 8px; }
+    #welcome p { font-size: 14px; }
+
+    /* Pagination */
+    .pagination {
+      display: flex; justify-content: center; gap: 8px; padding: 16px;
+    }
+    .page-btn {
+      padding: 6px 14px; background: #1a1b26; border: 1px solid #3b3b52;
+      border-radius: 6px; color: #c0caf5; cursor: pointer; font-size: 12px;
+    }
+    .page-btn:hover { border-color: #7aa2f7; }
+    .page-btn.active { background: #7aa2f7; color: #1a1b26; border-color: #7aa2f7; }
+    .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Export dropdown */
+    .export-opt {
+      display: block; width: 100%; text-align: left;
+      padding: 9px 14px; background: none; border: none;
+      color: #c0caf5; font-size: 13px; cursor: pointer;
+    }
+    .export-opt:hover { background: #24283b; color: #9ece6a; }
+
+    /* Dashboard */
+    #dashboard { max-width: 1000px; margin: 0 auto; }
+    .dash-cards { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+    .dash-card {
+      flex: 1; min-width: 150px; background: #1a1b26; border: 1px solid #292e42;
+      border-radius: 12px; padding: 18px 20px;
+    }
+    .dash-card .num { font-size: 28px; font-weight: 700; color: #7aa2f7; }
+    .dash-card .label { font-size: 12px; color: #565f89; margin-top: 4px; }
+    .dash-section {
+      background: #16161e; border: 1px solid #222236; border-radius: 12px;
+      padding: 18px 20px; margin-bottom: 20px;
+    }
+    .dash-section h3 { margin: 0 0 14px; font-size: 14px; color: #bb9af7; }
+    .bar-row { display: flex; align-items: center; gap: 10px; margin: 5px 0; font-size: 12px; }
+    .bar-row .bar-label { width: 120px; color: #a9b1d6; text-align: right;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar-row .bar-track { flex: 1; background: #1a1b26; border-radius: 4px; height: 18px; overflow: hidden; }
+    .bar-row .bar-fill { height: 100%; background: linear-gradient(90deg,#7aa2f7,#bb9af7); border-radius: 4px; }
+    .bar-row .bar-val { width: 60px; color: #565f89; }
+
+    /* Loading */
+    .loading { text-align: center; padding: 40px; color: #565f89; }
+    .spinner {
+      display: inline-block; width: 24px; height: 24px;
+      border: 3px solid #3b3b52; border-top-color: #7aa2f7;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+
+<body class="flex">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <h1>Gemini Vault</h1>
+      <select id="account-select">
+        <option value="" data-i18n="all_accounts">All accounts</option>
+      </select>
+    </div>
+    <!-- Tabs -->
+    <div style="display:flex;border-bottom:1px solid #2a2a3a">
+      <button class="sidebar-tab active" id="tab-chats" onclick="switchTab('chats')"
+        style="flex:1;padding:8px;background:none;border:none;color:#7aa2f7;font-size:12px;font-weight:600;cursor:pointer;border-bottom:2px solid #7aa2f7"
+        data-i18n="tab_chats">Chats</button>
+      <button class="sidebar-tab" id="tab-canvas" onclick="switchTab('canvas')"
+        style="flex:1;padding:8px;background:none;border:none;color:#565f89;font-size:12px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent"
+        data-i18n="tab_docs">Documents</button>
+    </div>
+    <input type="text" id="chat-filter" data-i18n-ph="filter_ph" placeholder="Filter...">
+    <div id="sort-row" style="display:flex;gap:8px;align-items:center;padding:6px 12px;border-bottom:1px solid #2a2a3a">
+      <select id="sort-select" data-i18n-title="sort_title"
+        style="flex:1;padding:5px 8px;background:#1a1a2e;color:#c0caf5;border:1px solid #3b3b52;border-radius:6px;font-size:11px">
+        <option value="date-desc" data-i18n="sort_newest">Newest first</option>
+        <option value="date-asc" data-i18n="sort_oldest">Oldest first</option>
+        <option value="msgs-desc" data-i18n="sort_msgs">Most messages</option>
+        <option value="title-asc" data-i18n="sort_title_az">Title (A–Z)</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#a9b1d6;cursor:pointer;white-space:nowrap">
+        <input type="checkbox" id="canvas-only" style="accent-color:#bb9af7"> <span data-i18n="with_canvas">📄 with Canvas</span>
+      </label>
+    </div>
+    <div id="year-filter" style="display:flex;flex-wrap:wrap;gap:4px;padding:6px 12px;border-bottom:1px solid #2a2a3a"></div>
+    <div id="chat-list"></div>
+    <div id="canvas-list" style="display:none;overflow-y:auto;flex:1"></div>
+    <div style="padding:8px 16px;border-top:1px solid #2a2a3a;font-size:11px;color:#565f89">
+      <span id="chat-count">0</span>
+      <button id="load-more-btn" class="page-btn" style="float:right;display:none" data-i18n="load_more">More</button>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div id="main">
+    <div id="main-header">
+      <div id="conv-title">Gemini Vault</div>
+      <button id="lang-toggle" onclick="toggleLang()">RU</button>
+      <button id="dash-btn" onclick="openDashboard()" data-i18n-title="dashboard_title"
+        style="padding:6px 12px;background:#24283b;border:1px solid #3b3b52;border-radius:8px;color:#bb9af7;font-size:12px;cursor:pointer"
+        data-i18n="dashboard_btn">📊 Dashboard</button>
+      <div id="export-menu" style="position:relative">
+        <button id="export-btn" onclick="toggleExportMenu(event)"
+          style="padding:6px 14px;background:#24283b;border:1px solid #3b3b52;border-radius:8px;color:#9ece6a;font-size:12px;cursor:pointer"
+          data-i18n="export_btn">⤓ Export ▾</button>
+        <div id="export-dropdown" style="display:none;position:absolute;top:36px;right:0;z-index:200;background:#1a1b26;border:1px solid #3b3b52;border-radius:8px;min-width:240px;box-shadow:0 8px 24px rgba(0,0,0,0.5);overflow:hidden">
+          <div style="padding:6px 12px;font-size:10px;color:#565f89;text-transform:uppercase;letter-spacing:.05em" data-i18n="exp_current">Current chat</div>
+          <button class="export-opt" onclick="exportCurrentChat()" data-i18n="exp_md">📄 Markdown (.md)</button>
+          <button class="export-opt" onclick="exportCurrentChatHtml()" data-i18n="exp_html">🌐 HTML (standalone)</button>
+          <button class="export-opt" onclick="printCurrentChat()" data-i18n="exp_print">🖨 Print / PDF</button>
+          <div style="border-top:1px solid #2a2a3a"></div>
+          <div style="padding:6px 12px;font-size:10px;color:#565f89;text-transform:uppercase;letter-spacing:.05em" data-i18n="exp_vault">Whole vault</div>
+          <button class="export-opt" onclick="exportAllChats()" data-i18n="exp_big_md">📄 Single big .md</button>
+          <button class="export-opt" onclick="exportZip()" data-i18n="exp_zip">🗜 ZIP (per file)</button>
+          <button class="export-opt" onclick="exportJson()" data-i18n-title="exp_json_title" data-i18n="exp_json">📦 JSON archive (migrate)</button>
+        </div>
+      </div>
+      <input type="text" id="search-global" data-i18n-ph="search_ph" placeholder="Global search across all chats (Ctrl+K)..." style="width:280px">
+      <input type="text" id="import-url" data-i18n-ph="import_url_ph" placeholder="Paste a Gemini link..." style="width:240px;padding:8px 14px;background:#1a1a2e;color:#c0caf5;border:1px solid #3b3b52;border-radius:8px;font-size:13px;outline:none">
+      <button onclick="importFromUrl()" data-i18n="import_btn" style="padding:8px 12px;background:#9ece6a;color:#1a1b26;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600">Import</button>
+    </div>
+
+    <div id="messages-container">
+      <div id="welcome">
+        <div style="font-size:48px;margin-bottom:16px">✦</div>
+        <h2>Gemini Vault</h2>
+        <p data-i18n="welcome_sub">Pick a chat on the left or use search (Ctrl+K)</p>
+        <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+          <button onclick="startScrapeAll()" class="page-btn"
+            style="padding:12px 24px;font-size:14px;background:#7aa2f7;color:#1a1b26;border-color:#7aa2f7;font-weight:700"
+            data-i18n="scrape_btn">Scrape Gemini</button>
+          <button onclick="exportAllChats()" class="page-btn" style="padding:10px 20px;font-size:13px" data-i18n="export_all_btn">Export all chats to .md</button>
+          <button onclick="openSchedule()" class="page-btn" style="padding:10px 20px;font-size:13px" data-i18n="schedule_btn">⏰ Scheduled auto-backup</button>
+        </div>
+        <p style="margin-top:12px;font-size:12px;max-width:420px;text-align:center;line-height:1.5" data-i18n="welcome_note">
+          Scrape Gemini opens Chrome, goes to gemini.google.com and downloads all chats into the database. Sign in inside the Chrome window if asked.
+        </p>
+      </div>
+    </div>
+
+    <div id="status-bar">
+      <span id="status-text" data-i18n="loading">Loading...</span>
+      <span id="status-stats"></span>
+    </div>
+  </div>
+
+  <!-- Scrape Panel -->
+  <div id="scrape-panel" style="display:none;position:fixed;bottom:0;left:340px;right:0;background:#1a1b26;border-top:2px solid #7aa2f7;z-index:100">
+    <div style="padding:10px 24px;display:flex;align-items:center;justify-content:space-between">
+      <span style="color:#7aa2f7;font-weight:600;font-size:13px" id="scrape-title">Scraping Gemini...</span>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span id="scrape-progress" style="color:#9ece6a;font-size:12px;font-weight:600"></span>
+        <button onclick="stopScraping()" data-i18n="stop" style="padding:4px 14px;background:#f7768e;color:#1a1b26;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600">Stop</button>
+        <button onclick="closeScrapePanel()" style="padding:4px 10px;background:none;border:1px solid #3b3b52;border-radius:6px;color:#565f89;font-size:14px;cursor:pointer">&times;</button>
+      </div>
+    </div>
+    <pre id="scrape-log" style="max-height:200px;overflow-y:auto;padding:8px 24px;margin:0;font-size:11px;color:#a9b1d6;background:#13131b;border-top:1px solid #2a2a3a"></pre>
+  </div>
+
+  <!-- Schedule Overlay -->
+  <div id="schedule-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:none;align-items:center;justify-content:center">
+    <div style="width:90%;max-width:640px;max-height:88vh;overflow-y:auto;background:#1a1b26;border:1px solid #3b3b52;border-radius:12px">
+      <div style="padding:16px 20px;border-bottom:1px solid #2a2a3a;display:flex;justify-content:space-between;align-items:center">
+        <h3 style="margin:0;color:#7aa2f7;font-size:16px" data-i18n="sched_h">⏰ Scheduled auto-backup</h3>
+        <span onclick="closeSchedule()" style="cursor:pointer;color:#565f89;font-size:22px">&times;</span>
+      </div>
+      <div style="padding:20px;font-size:13px;color:#a9b1d6;line-height:1.6">
+        <p style="margin-top:0" data-i18n="sched_intro">Backup uses the existing scraper (SHA256 dedup — only new/changed chats are fetched). This generates a command for the Windows Task Scheduler — nothing to install.</p>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin:16px 0">
+          <label style="flex:1;min-width:180px"><span data-i18n="sched_account">Account</span><br>
+            <input id="sched-account" type="text" placeholder="you@gmail.com"
+              style="width:100%;margin-top:4px;padding:8px;background:#13131b;color:#c0caf5;border:1px solid #3b3b52;border-radius:6px">
+          </label>
+          <label><span data-i18n="sched_freq">Frequency</span><br>
+            <select id="sched-freq" onchange="buildScheduleCmd()"
+              style="margin-top:4px;padding:8px;background:#13131b;color:#c0caf5;border:1px solid #3b3b52;border-radius:6px">
+              <option value="DAILY" data-i18n="sched_daily">Daily</option>
+              <option value="WEEKLY" data-i18n="sched_weekly">Weekly</option>
+            </select>
+          </label>
+          <label><span data-i18n="sched_time">Time</span><br>
+            <input id="sched-time" type="time" value="03:00" onchange="buildScheduleCmd()"
+              style="margin-top:4px;padding:8px;background:#13131b;color:#c0caf5;border:1px solid #3b3b52;border-radius:6px">
+          </label>
+        </div>
+        <div style="font-size:11px;color:#565f89;margin-bottom:4px" data-i18n="sched_copy_hint">Copy and run in PowerShell/CMD (once):</div>
+        <textarea id="sched-cmd" readonly rows="4"
+          style="width:100%;padding:10px;background:#13131b;color:#9ece6a;border:1px solid #3b3b52;border-radius:6px;font-family:Consolas,monospace;font-size:12px;resize:vertical"></textarea>
+        <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+          <button onclick="copyScheduleCmd()" class="page-btn" style="background:#7aa2f7;color:#1a1b26;border-color:#7aa2f7;font-weight:600" data-i18n="sched_copy">Copy command</button>
+          <button onclick="startScrapeAll();closeSchedule()" class="page-btn" data-i18n="sched_run_now">▶ Run backup now</button>
+        </div>
+        <p style="font-size:11px;color:#565f89;margin-bottom:0;margin-top:14px">
+          <span data-i18n="sched_delete">Delete the task:</span> <code style="color:#f7768e">schtasks /delete /tn "GeminiVaultBackup" /f</code><br>
+          <span data-i18n="sched_login_note">On first run the command keeps a browser window open for the Google login.</span>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Canvas Overlay -->
+  <div id="canvas-overlay">
+    <div id="canvas-panel">
+      <div id="canvas-header">
+        <h3 id="canvas-title">Canvas Document</h3>
+        <span id="canvas-close">&times;</span>
+      </div>
+      <div id="canvas-content"></div>
+    </div>
+  </div>
+
+  <script>
+    // ═══════════════════════════════════════════════
+    //  Gemini Vault Viewer — app.js (inline)
+    // ═══════════════════════════════════════════════
+
+    // ── i18n: English (default) + Russian, toggled in the UI ──
+    const I18N = {
+      en: {
+        all_accounts: 'All accounts', tab_chats: 'Chats', tab_docs: 'Documents',
+        filter_ph: 'Filter...', sort_title: 'Sorting',
+        sort_newest: 'Newest first', sort_oldest: 'Oldest first',
+        sort_msgs: 'Most messages', sort_title_az: 'Title (A–Z)',
+        with_canvas: '📄 with Canvas', load_more: 'More',
+        dashboard_btn: '📊 Dashboard', dashboard_title: 'Stats and charts',
+        export_btn: '⤓ Export ▾', exp_current: 'Current chat',
+        exp_md: '📄 Markdown (.md)', exp_html: '🌐 HTML (standalone)', exp_print: '🖨 Print / PDF',
+        exp_vault: 'Whole vault', exp_big_md: '📄 Single big .md', exp_zip: '🗜 ZIP (per file)',
+        exp_json: '📦 JSON archive (migrate)', exp_json_title: 'Imports into another Gemini Vault 1:1',
+        search_ph: 'Global search across all chats (Ctrl+K)...',
+        import_url_ph: 'Paste a Gemini link...', import_btn: 'Import',
+        welcome_sub: 'Pick a chat on the left or use search (Ctrl+K)',
+        scrape_btn: 'Scrape Gemini', export_all_btn: 'Export all chats to .md',
+        schedule_btn: '⏰ Scheduled auto-backup',
+        welcome_note: 'Scrape Gemini opens Chrome, goes to gemini.google.com and downloads all chats into the database. Sign in inside the Chrome window if asked.',
+        stop: 'Stop', loading: 'Loading...', ready: 'Ready',
+        sched_h: '⏰ Scheduled auto-backup',
+        sched_intro: 'Backup uses the existing scraper (SHA256 dedup — only new/changed chats are fetched). This generates a command for the Windows Task Scheduler — nothing to install.',
+        sched_account: 'Account', sched_freq: 'Frequency', sched_time: 'Time',
+        sched_daily: 'Daily', sched_weekly: 'Weekly',
+        sched_copy_hint: 'Copy and run in PowerShell/CMD (once):',
+        sched_copy: 'Copy command', sched_run_now: '▶ Run backup now',
+        sched_delete: 'Delete the task:',
+        sched_login_note: 'On first run the command keeps a browser window open for the Google login.',
+        chats_n: n => `${n} chats`,
+        canvas_n: (a, b) => `${a} Canvas / ${b} uploads`,
+        stats_line: (c, m, k) => `${c} chats · ${m} messages · ${k} artifacts`,
+        conn_error_h: 'Connection error',
+        conn_error_p: 'Make sure the server is running: <code>python serve.py</code>',
+        err_prefix: 'Error', loading_chat: 'Loading...', searching: 'Searching...',
+        search_title: q => `Search: "${q}"`, nothing_found: 'Nothing found',
+        found_n: n => `Found: ${n} results`,
+        msg_label: '💬 Message', doc_label: '📄 Document',
+        attached_docs: 'Attached documents:', open_doc: 'Open document',
+        you: 'You', doc_word: 'document', untitled: 'Untitled', chat_word: 'Chat',
+        uploaded_file: 'Uploaded file', canvas_word: 'Canvas', source: 'Source', chat_colon: 'Chat',
+        dash_title: '📊 Dashboard', dash_calc: 'Computing stats...',
+        dash_chats: 'Chats', dash_messages: 'Messages', dash_canvas: 'Canvas / documents', dash_accounts: 'Accounts',
+        dash_by_month: 'Activity by month', dash_by_account: 'Chats by account',
+        dash_roles: 'Messages by role', dash_doc_types: 'Documents by type', dash_longest: 'Longest chats',
+        msgs_suffix: 'msgs',
+        export_running: 'Exporting all chats...', export_progress: (i, n) => `Exporting ${i}/${n}...`,
+        exported_n: n => `Exported ${n} chats`, dl_zip: 'Downloading ZIP archive...',
+        dl_json: 'Downloading JSON archive (to migrate into another Vault)...',
+        sched_copied: 'Schedule command copied',
+        open_chat_first: 'Open a chat first.',
+        scrape_start: 'Starting scraper...', scrape_account_prompt: 'Enter the Gemini account email to scrape:',
+        scrape_cancel_noacc: 'Cancelled: no account specified.',
+        scrape_done: 'Scraping complete!', scrape_failed: 'Scraping failed', scrape_stopped: 'Scraper stopped',
+        scrape_cli_hint: u => `To import by link, run in a terminal:\n\npython processor/scrape_gemini_url.py "${u}"`,
+        scrape_cli_full: u => `To import by link, run in a terminal:\n\npython processor/scrape_gemini_url.py "${u}"\n\nPlaywright opens a browser, sign in and the data is saved to the database.`,
+        invalid_link: 'Paste a chat or Canvas link from gemini.google.com',
+        big_md_title: 'Gemini Vault — Full export', big_md_date: 'Date', big_md_chats: 'Chats', big_md_toc: 'Table of contents',
+        export_doc_meta: 'Account',
+      },
+      ru: {
+        all_accounts: 'Все аккаунты', tab_chats: 'Чаты', tab_docs: 'Документы',
+        filter_ph: 'Фильтр...', sort_title: 'Сортировка',
+        sort_newest: 'Новые сверху', sort_oldest: 'Старые сверху',
+        sort_msgs: 'Больше сообщений', sort_title_az: 'По названию (А–Я)',
+        with_canvas: '📄 с Canvas', load_more: 'Ещё',
+        dashboard_btn: '📊 Дашборд', dashboard_title: 'Статистика и графики',
+        export_btn: '⤓ Экспорт ▾', exp_current: 'Текущий чат',
+        exp_md: '📄 Markdown (.md)', exp_html: '🌐 HTML (автономный)', exp_print: '🖨 Печать / PDF',
+        exp_vault: 'Весь vault', exp_big_md: '📄 Один большой .md', exp_zip: '🗜 ZIP (по файлам)',
+        exp_json: '📦 JSON-архив (перенос)', exp_json_title: 'Импортируется в другой Gemini Vault 1-в-1',
+        search_ph: 'Глобальный поиск по всем чатам (Ctrl+K)...',
+        import_url_ph: 'Вставь ссылку Gemini...', import_btn: 'Импорт',
+        welcome_sub: 'Выберите чат слева или используйте поиск (Ctrl+K)',
+        scrape_btn: 'Скачать из Gemini', export_all_btn: 'Экспорт всех чатов в .md',
+        schedule_btn: '⏰ Авто-бэкап по расписанию',
+        welcome_note: 'Кнопка откроет Chrome, зайдёт на gemini.google.com и скачает все чаты в базу. Залогиньтесь в окне Chrome, если нужно.',
+        stop: 'Стоп', loading: 'Загрузка...', ready: 'Готово',
+        sched_h: '⏰ Авто-бэкап по расписанию',
+        sched_intro: 'Бэкап использует уже работающий скрейпер (дедупликация по SHA256 — докачиваются только новые/изменённые чаты). Здесь генерируется команда для Планировщика заданий Windows — без установки чего-либо.',
+        sched_account: 'Аккаунт', sched_freq: 'Частота', sched_time: 'Время',
+        sched_daily: 'Ежедневно', sched_weekly: 'Еженедельно',
+        sched_copy_hint: 'Скопируйте и выполните в PowerShell/CMD (один раз):',
+        sched_copy: 'Копировать команду', sched_run_now: '▶ Запустить бэкап сейчас',
+        sched_delete: 'Удалить задачу:',
+        sched_login_note: 'Команда оставляет окно браузера для входа в Google при первом запуске.',
+        chats_n: n => `${n} чатов`,
+        canvas_n: (a, b) => `${a} Canvas / ${b} загруж.`,
+        stats_line: (c, m, k) => `${c} чатов · ${m} сообщений · ${k} артефактов`,
+        conn_error_h: 'Ошибка подключения',
+        conn_error_p: 'Убедитесь, что сервер запущен: <code>python serve.py</code>',
+        err_prefix: 'Ошибка', loading_chat: 'Загрузка...', searching: 'Поиск...',
+        search_title: q => `Поиск: "${q}"`, nothing_found: 'Ничего не найдено',
+        found_n: n => `Найдено: ${n} результатов`,
+        msg_label: '💬 Сообщение', doc_label: '📄 Документ',
+        attached_docs: 'Прикреплённые документы:', open_doc: 'Открыть документ',
+        you: 'Вы', doc_word: 'документ', untitled: 'Без названия', chat_word: 'Чат',
+        uploaded_file: 'Загруженный файл', canvas_word: 'Canvas', source: 'Источник', chat_colon: 'Чат',
+        dash_title: '📊 Дашборд', dash_calc: 'Считаем статистику...',
+        dash_chats: 'Чатов', dash_messages: 'Сообщений', dash_canvas: 'Canvas / документов', dash_accounts: 'Аккаунтов',
+        dash_by_month: 'Активность по месяцам', dash_by_account: 'Чаты по аккаунтам',
+        dash_roles: 'Сообщения по ролям', dash_doc_types: 'Документы по типам', dash_longest: 'Самые длинные чаты',
+        msgs_suffix: 'сообщ.',
+        export_running: 'Экспорт всех чатов...', export_progress: (i, n) => `Экспорт ${i}/${n}...`,
+        exported_n: n => `Экспортировано ${n} чатов`, dl_zip: 'Скачивание ZIP-архива...',
+        dl_json: 'Скачивание JSON-архива (для переноса в другой Vault)...',
+        sched_copied: 'Команда расписания скопирована',
+        open_chat_first: 'Сначала откройте чат.',
+        scrape_start: 'Запуск скрейпера...', scrape_account_prompt: 'Введите email аккаунта Gemini для скрейпинга:',
+        scrape_cancel_noacc: 'Отменено: не указан аккаунт.',
+        scrape_done: 'Скрейпинг завершён!', scrape_failed: 'Скрейпинг не удался', scrape_stopped: 'Скрейпер остановлен',
+        scrape_cli_hint: u => `Для импорта по ссылке запустите в терминале:\n\npython processor/scrape_gemini_url.py "${u}"`,
+        scrape_cli_full: u => `Для импорта по ссылке запустите в терминале:\n\npython processor/scrape_gemini_url.py "${u}"\n\nPlaywright откроет браузер, залогиньтесь и данные сохранятся в базу.`,
+        invalid_link: 'Вставьте ссылку на чат или Canvas из gemini.google.com',
+        big_md_title: 'Gemini Vault — Полный экспорт', big_md_date: 'Дата', big_md_chats: 'Чатов', big_md_toc: 'Оглавление',
+        export_doc_meta: 'Аккаунт',
+      },
+    };
+
+    let lang = localStorage.getItem('gv_lang') || 'en';
+
+    function t(key, ...args) {
+      const v = (I18N[lang] && I18N[lang][key] !== undefined) ? I18N[lang][key] : (I18N.en[key]);
+      if (typeof v === 'function') return v(...args);
+      return v !== undefined ? v : key;
+    }
+
+    function applyStaticI18n() {
+      document.documentElement.lang = lang;
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        el.textContent = t(el.getAttribute('data-i18n'));
+      });
+      document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+        el.placeholder = t(el.getAttribute('data-i18n-ph'));
+      });
+      document.querySelectorAll('[data-i18n-title]').forEach(el => {
+        el.title = t(el.getAttribute('data-i18n-title'));
+      });
+      document.getElementById('lang-toggle').textContent = lang === 'en' ? 'RU' : 'EN';
+    }
+
+    function toggleLang() {
+      lang = (lang === 'en') ? 'ru' : 'en';
+      localStorage.setItem('gv_lang', lang);
+      applyStaticI18n();
+      // Re-render dynamic views
+      if (currentTab === 'chats') renderChatList(); else renderCanvasList();
+      const title = document.getElementById('conv-title').textContent;
+      if (currentConvId) openConversation(currentConvId);
+      refreshStatsLine();
+    }
+
+    const API = '/api';
+    let currentConvId = null;
+    let allChats = [];
+    let allAccounts = [];
+    let chatOffset = 0;
+    let sortMode = 'date-desc';
+    let onlyWithCanvas = false;
+    const CHAT_PAGE_SIZE = 100;
+    let lastStats = null;
+
+    // ── Init ──
+
+    async function init() {
+      applyStaticI18n();
+      try {
+        const stats = await api('/stats');
+        lastStats = stats;
+        refreshStatsLine();
+        await loadAccounts();
+        await loadChats();
+        document.getElementById('status-text').textContent = t('ready');
+      } catch (err) {
+        document.getElementById('status-text').textContent = `${t('err_prefix')}: ${err.message}`;
+        document.getElementById('welcome').innerHTML =
+          `<h2 style="color:#f7768e">${t('conn_error_h')}</h2>
+           <p>${t('conn_error_p')}</p>
+           <p style="color:#565f89;margin-top:8px">${err.message}</p>`;
+      }
+    }
+
+    function refreshStatsLine() {
+      if (!lastStats) return;
+      document.getElementById('status-stats').textContent =
+        t('stats_line', lastStats.conversations, lastStats.messages, lastStats.canvas_artifacts);
+    }
+
+    async function api(path, params = {}) {
+      const qs = new URLSearchParams(params).toString();
+      const url = `${API}${path}${qs ? '?' + qs : ''}`;
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      return resp.json();
+    }
+
+    // ── Accounts ──
+
+    async function loadAccounts() {
+      const accounts = await api('/accounts');
+      allAccounts = accounts;
+      const select = document.getElementById('account-select');
+      for (const a of accounts) {
+        const opt = document.createElement('option');
+        opt.value = a.id;
+        opt.textContent = a.email;
+        select.appendChild(opt);
+      }
+      select.addEventListener('change', () => {
+        chatOffset = 0;
+        allChats = [];
+        loadChats();
+      });
+    }
+
+    // ── Chat List ──
+
+    async function loadChats() {
+      const accountId = document.getElementById('account-select').value;
+      const params = { limit: 10000, offset: 0 };
+      if (accountId) params.account_id = accountId;
+
+      allChats = await api('/conversations', params);
+      selectedYear = 'all';
+
+      renderYearFilter();
+      renderChatList();
+      document.getElementById('load-more-btn').style.display = 'none';
+    }
+
+    // ── Sorting ──
+
+    function sortChats(arr) {
+      const dateOf = c => c.updated_time || c.created_time || '';
+      if (sortMode === 'date-asc') {
+        arr.sort((a, b) => dateOf(a).localeCompare(dateOf(b)));
+      } else if (sortMode === 'msgs-desc') {
+        arr.sort((a, b) => (b.message_count || 0) - (a.message_count || 0));
+      } else if (sortMode === 'title-asc') {
+        arr.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+      } else {
+        arr.sort((a, b) => dateOf(b).localeCompare(dateOf(a)));
+      }
+    }
+
+    // ── Year filter ──
+
+    let selectedYear = 'all';
+
+    function chatYear(c) {
+      const d = c.updated_time || c.created_time || '';
+      const m = d.match(/^(\d{4})/);
+      return m ? m[1] : null;
+    }
+
+    function renderYearFilter() {
+      const box = document.getElementById('year-filter');
+      const years = [...new Set(allChats.map(chatYear).filter(Boolean))].sort().reverse();
+      const undated = allChats.some(c => !chatYear(c));
+
+      const chips = [{ key: 'all', label: t('all_accounts') === 'All accounts' ? 'All' : 'Все' }];
+      for (const y of years) chips.push({ key: y, label: y });
+      if (undated) chips.push({ key: 'none', label: lang === 'en' ? 'No date' : 'Без даты' });
+
+      box.innerHTML = '';
+      for (const ch of chips) {
+        const btn = document.createElement('button');
+        const active = ch.key === selectedYear;
+        btn.textContent = ch.label;
+        btn.style.cssText = 'padding:3px 10px;font-size:11px;border-radius:12px;cursor:pointer;border:1px solid '
+          + (active ? '#7aa2f7' : '#3b3b52') + ';background:' + (active ? '#7aa2f7' : 'transparent')
+          + ';color:' + (active ? '#1a1b26' : '#a9b1d6') + ';font-weight:' + (active ? '700' : '400');
+        btn.addEventListener('click', () => {
+          selectedYear = ch.key;
+          renderYearFilter();
+          renderChatList();
+        });
+        box.appendChild(btn);
+      }
+    }
+
+    function renderChatList() {
+      const filter = document.getElementById('chat-filter').value.toLowerCase();
+      const list = document.getElementById('chat-list');
+      list.innerHTML = '';
+
+      let filtered = allChats.slice();
+      if (selectedYear === 'none') {
+        filtered = filtered.filter(c => !chatYear(c));
+      } else if (selectedYear !== 'all') {
+        filtered = filtered.filter(c => chatYear(c) === selectedYear);
+      }
+      if (filter) {
+        filtered = filtered.filter(c => (c.title || '').toLowerCase().includes(filter));
+      }
+      if (onlyWithCanvas) {
+        filtered = filtered.filter(c => (c.canvas_count || 0) > 0);
+      }
+      sortChats(filtered);
+
+      for (const c of filtered) {
+        const div = document.createElement('div');
+        div.className = 'chat-item' + (c.id === currentConvId ? ' active' : '');
+        const canvasBadge = c.canvas_count > 0 ? ` · 📄${c.canvas_count}` : '';
+        const msgWord = lang === 'en' ? 'msgs' : 'сообщ.';
+        div.innerHTML = `
+          <div class="chat-item-title">${escapeHtml(c.title || t('untitled'))}</div>
+          <div class="chat-item-meta">${c.message_count} ${msgWord}${canvasBadge} · ${formatDate(c.updated_time || c.created_time)}</div>
+        `;
+        div.addEventListener('click', () => openConversation(c.id));
+        list.appendChild(div);
+      }
+
+      document.getElementById('chat-count').textContent = t('chats_n', filtered.length);
+    }
+
+    // ── Conversation View ──
+
+    async function openConversation(convId) {
+      currentConvId = convId;
+      renderChatList();
+
+      const container = document.getElementById('messages-container');
+      container.innerHTML = `<div class="loading"><div class="spinner"></div><p>${t('loading_chat')}</p></div>`;
+
+      try {
+        const data = await api(`/conversation/${convId}`);
+        const conv = data.conversation;
+        document.getElementById('conv-title').textContent = conv.title || t('chat_word');
+
+        const canvasMap = new Map();
+        for (const art of data.canvas_artifacts) {
+          const seq = art.parent_message_seq;
+          if (seq != null) {
+            if (!canvasMap.has(seq)) canvasMap.set(seq, []);
+            canvasMap.get(seq).push(art);
+          }
+        }
+
+        let html = '';
+        for (const msg of data.messages) {
+          html += renderMessage(msg, canvasMap.get(msg.seq) || []);
+        }
+
+        const orphanCanvas = data.canvas_artifacts.filter(a => a.parent_message_seq == null);
+        if (orphanCanvas.length > 0) {
+          html += '<div style="max-width:800px;margin:20px auto;padding:12px;border-top:1px solid #2a2a3a">';
+          html += `<div style="font-size:12px;color:#565f89;margin-bottom:8px">${t('attached_docs')}</div>`;
+          for (const art of orphanCanvas) {
+            html += `<button class="canvas-btn" onclick="openCanvas('${escapeAttr(art.id)}')">
+              📄 ${escapeHtml(art.type)} ${t('doc_word')}
+            </button> `;
+          }
+          html += '</div>';
+        }
+
+        container.innerHTML = html;
+
+        container.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+        renderMathInElement(container, {
+          delimiters: [
+            {left: '$$', right: '$$', display: true},
+            {left: '$', right: '$', display: false},
+            {left: '\\[', right: '\\]', display: true},
+            {left: '\\(', right: '\\)', display: false},
+          ],
+          throwOnError: false,
+        });
+
+        container.scrollTop = 0;
+      } catch (err) {
+        container.innerHTML = `<div class="loading" style="color:#f7768e">${t('err_prefix')}: ${err.message}</div>`;
+      }
+    }
+
+    function renderMessage(msg, canvasItems) {
+      const roleLabel = msg.role === 'user' ? t('you') : 'Gemini';
+      const roleIcon = msg.role === 'user' ? '👤' : '✦';
+      const content = renderMarkdown(cleanContent(msg.content || ''));
+      const time = msg.timestamp_ms ? formatTime(msg.timestamp_ms) : '';
+
+      let canvasButtons = '';
+      for (const art of canvasItems) {
+        canvasButtons += `<button class="canvas-btn" onclick="openCanvas('${escapeAttr(art.id)}')">
+          📄 ${t('open_doc')} (${art.type})
+        </button> `;
+      }
+
+      return `
+        <div class="message ${msg.role}">
+          <div class="message-role">${roleIcon} ${roleLabel} ${time ? '<span style="font-weight:400;color:#565f89;margin-left:8px">' + time + '</span>' : ''}</div>
+          <div class="message-content">${content}</div>
+          ${canvasButtons}
+        </div>
+      `;
+    }
+
+    function cleanContent(text) {
+      text = text.replace(/```\s*This block is not supported on your current device yet\.\s*```/g,
+        '_[Canvas block — see original in Gemini]_');
+      text = text.replace(/This block is not supported on your current device yet\./g,
+        '_[Canvas block]_');
+      text = text.replace(/```\s*```/g, '');
+      return text.trim();
+    }
+
+    function renderMarkdown(text) {
+      if (!text) return '';
+      try {
+        return marked.parse(text, { breaks: true, gfm: true });
+      } catch (_) {
+        return escapeHtml(text).replace(/\n/g, '<br>');
+      }
+    }
+
+    function formatTime(tsMs) {
+      try {
+        const d = new Date(tsMs);
+        return d.toLocaleString(lang === 'en' ? 'en-US' : 'ru-RU',
+          { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      } catch (_) { return ''; }
+    }
+
+    // ── Canvas Overlay ──
+
+    async function openCanvas(artifactId) {
+      const overlay = document.getElementById('canvas-overlay');
+      const content = document.getElementById('canvas-content');
+      const title = document.getElementById('canvas-title');
+
+      content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+      overlay.classList.add('visible');
+
+      try {
+        const data = await api(`/canvas/${artifactId}`);
+        title.textContent = `${t('doc_word')} — ${data.type || t('doc_word')}`;
+        content.innerHTML = renderMarkdown(data.content || data.raw_html || '');
+
+        content.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+        renderMathInElement(content, {
+          delimiters: [
+            {left: '$$', right: '$$', display: true},
+            {left: '$', right: '$', display: false},
+          ],
+          throwOnError: false,
+        });
+      } catch (err) {
+        content.innerHTML = `<div style="color:#f7768e">${t('err_prefix')}: ${err.message}</div>`;
+      }
+    }
+
+    document.getElementById('canvas-close').addEventListener('click', () => {
+      document.getElementById('canvas-overlay').classList.remove('visible');
+    });
+    document.getElementById('canvas-overlay').addEventListener('click', (e) => {
+      if (e.target.id === 'canvas-overlay') {
+        document.getElementById('canvas-overlay').classList.remove('visible');
+      }
+    });
+
+    // ── Global Search ──
+
+    let searchTimeout = null;
+    document.getElementById('search-global').addEventListener('input', (e) => {
+      clearTimeout(searchTimeout);
+      const q = e.target.value.trim();
+      if (q.length < 2) {
+        if (currentConvId) openConversation(currentConvId);
+        return;
+      }
+      searchTimeout = setTimeout(() => performSearch(q), 300);
+    });
+
+    document.getElementById('search-global').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        clearTimeout(searchTimeout);
+        const q = e.target.value.trim();
+        if (q.length >= 1) performSearch(q);
+      }
+    });
+
+    async function performSearch(query) {
+      const container = document.getElementById('messages-container');
+      container.innerHTML = `<div class="loading"><div class="spinner"></div><p>${t('searching')}</p></div>`;
+      document.getElementById('conv-title').textContent = t('search_title', query);
+
+      try {
+        const data = await api('/search', { q: query, limit: 50 });
+        if (data.results.length === 0) {
+          container.innerHTML = `<div class="loading">${t('nothing_found')}</div>`;
+          return;
+        }
+
+        let html = `<div style="max-width:800px;margin:0 auto;padding-bottom:16px;color:#565f89;font-size:13px">
+          ${t('found_n', data.total)}
+        </div>`;
+
+        for (const r of data.results) {
+          html += `
+            <div class="search-result" onclick="openConversation('${escapeAttr(r.conversation_id)}')">
+              <div class="search-result-title">${escapeHtml(r.title || t('untitled'))}</div>
+              <div class="search-result-snippet">${r.snippet || escapeHtml((r.content || '').substring(0, 200))}</div>
+              <div class="search-result-meta">
+                ${(r.type === 'canvas' || r.type === 'document') ? t('doc_label') : t('msg_label')}
+                · ${escapeHtml(r.email || '')}
+                ${r.role ? ` · ${r.role}` : ''}
+              </div>
+            </div>
+          `;
+        }
+
+        container.innerHTML = html;
+      } catch (err) {
+        container.innerHTML = `<div class="loading" style="color:#f7768e">${t('err_prefix')}: ${err.message}</div>`;
+      }
+    }
+
+    // ── Tabs: Chats / Canvas ──
+
+    let currentTab = 'chats';
+    let canvasItems = [];
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.getElementById('tab-chats').style.borderBottomColor = tab === 'chats' ? '#7aa2f7' : 'transparent';
+      document.getElementById('tab-chats').style.color = tab === 'chats' ? '#7aa2f7' : '#565f89';
+      document.getElementById('tab-canvas').style.borderBottomColor = tab === 'canvas' ? '#bb9af7' : 'transparent';
+      document.getElementById('tab-canvas').style.color = tab === 'canvas' ? '#bb9af7' : '#565f89';
+
+      document.getElementById('chat-list').style.display = tab === 'chats' ? 'block' : 'none';
+      document.getElementById('canvas-list').style.display = tab === 'canvas' ? 'block' : 'none';
+      document.getElementById('load-more-btn').style.display = tab === 'chats' ? '' : 'none';
+
+      if (tab === 'canvas' && canvasItems.length === 0) loadCanvasList();
+      if (tab === 'chats') renderChatList();
+      if (tab === 'canvas') renderCanvasList();
+    }
+
+    async function loadCanvasList() {
+      const filter = document.getElementById('chat-filter').value.trim();
+      const params = filter ? { q: filter } : {};
+      canvasItems = await api('/canvas-list', params);
+      renderCanvasList();
+    }
+
+    function renderCanvasList() {
+      const list = document.getElementById('canvas-list');
+      const filter = document.getElementById('chat-filter').value.toLowerCase();
+
+      const filtered = filter
+        ? canvasItems.filter(c => ((c.preview || '') + (c.source_path || '') + (c.conv_title || '')).toLowerCase().includes(filter))
+        : canvasItems;
+
+      const canvasReal = filtered.filter(c => !c.source_path || !c.source_path.includes('Takeout'));
+      const uploads = filtered.filter(c => c.source_path && c.source_path.includes('Takeout'));
+
+      list.innerHTML = '';
+
+      if (canvasReal.length > 0) {
+        const header1 = document.createElement('div');
+        header1.style.cssText = 'padding:8px 16px;font-size:11px;font-weight:700;color:#bb9af7;background:#1a1a2e;border-bottom:1px solid #2a2a3a';
+        header1.textContent = `Canvas (${canvasReal.length})`;
+        list.appendChild(header1);
+        for (const c of canvasReal) list.appendChild(makeCanvasItem(c));
+      }
+
+      if (uploads.length > 0) {
+        const header2 = document.createElement('div');
+        header2.style.cssText = 'padding:8px 16px;font-size:11px;font-weight:700;color:#565f89;background:#1a1a2e;border-bottom:1px solid #2a2a3a';
+        const upLabel = lang === 'en' ? 'Uploaded files' : 'Загруженные файлы';
+        header2.textContent = `${upLabel} (${uploads.length})`;
+        list.appendChild(header2);
+        for (const c of uploads) list.appendChild(makeCanvasItem(c));
+      }
+
+      document.getElementById('chat-count').textContent = t('canvas_n', canvasReal.length, uploads.length);
+    }
+
+    function makeCanvasItem(c) {
+      const div = document.createElement('div');
+      div.className = 'chat-item';
+      const typeBadge = c.type === 'code' ? '&#x1F4BB;' : c.type === 'docx' ? '&#x1F4DD;' : c.type === 'pdf' ? '&#x1F4C4;' : '&#x1F4CB;';
+      const name = (c.source_path || '').split('/').pop() || c.conv_title || c.id;
+      const preview = (c.preview || '').substring(0, 80).replace(/\n/g, ' ');
+      div.innerHTML = `
+        <div class="chat-item-title">${typeBadge} ${escapeHtml(name)}</div>
+        <div class="chat-item-meta">${escapeHtml(preview)}...</div>
+      `;
+      div.addEventListener('click', () => viewCanvas(c.id));
+      return div;
+    }
+
+    async function viewCanvas(artifactId) {
+      const container = document.getElementById('messages-container');
+      container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+      try {
+        const data = await api(`/canvas/${artifactId}`);
+        const source = data.raw_html || '';
+        const isUpload = source.includes('Takeout');
+        const label = isUpload ? t('uploaded_file') : t('canvas_word');
+        document.getElementById('conv-title').textContent = `${label}: ${data.type || t('doc_word')}`;
+
+        const filename = source.split('/').pop() || artifactId;
+        const borderColor = isUpload ? '#565f89' : '#bb9af7';
+        const labelColor = isUpload ? '#565f89' : '#bb9af7';
+
+        let html = `
+          <div style="max-width:800px;margin:0 auto">
+            <div style="padding:16px;background:#1a1b26;border:1px solid #292e42;border-radius:12px;margin-bottom:16px">
+              <div style="font-size:11px;color:${labelColor};margin-bottom:8px;font-weight:600">${label} (${data.type || 'file'})</div>
+              ${source ? '<div style="font-size:11px;color:#565f89;margin-bottom:4px">' + t('source') + ': ' + escapeHtml(source) + '</div>' : ''}
+              <div style="font-size:11px;color:#565f89">${t('chat_colon')}: ${escapeHtml(data.conv_title || '-')}</div>
+            </div>
+            <div class="message model" style="border-left-color:${borderColor}">
+              <div class="message-role" style="color:${labelColor}">${escapeHtml(filename)}</div>
+              <div class="message-content">${renderMarkdown(cleanContent(data.content || ''))}</div>
+            </div>
+          </div>
+        `;
+        container.innerHTML = html;
+
+        container.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+        if (typeof renderMathInElement === 'function') {
+          renderMathInElement(container, {
+            delimiters: [{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],
+            throwOnError: false
+          });
+        }
+      } catch (err) {
+        container.innerHTML = `<div class="loading" style="color:#f7768e">${t('err_prefix')}: ${err.message}</div>`;
+      }
+    }
+
+    // ── Chat Filter + controls ──
+
+    document.getElementById('chat-filter').addEventListener('input', () => {
+      if (currentTab === 'chats') renderChatList();
+      else renderCanvasList();
+    });
+
+    document.getElementById('sort-select').addEventListener('change', (e) => {
+      sortMode = e.target.value;
+      renderChatList();
+    });
+
+    document.getElementById('canvas-only').addEventListener('change', (e) => {
+      onlyWithCanvas = e.target.checked;
+      renderChatList();
+    });
+
+    document.getElementById('load-more-btn').addEventListener('click', () => {
+      chatOffset += CHAT_PAGE_SIZE;
+      loadChats(true);
+    });
+
+    // ── Utils ──
+
+    function escapeHtml(s) {
+      const el = document.createElement('span');
+      el.textContent = s || '';
+      return el.innerHTML;
+    }
+
+    function escapeAttr(s) {
+      return (s || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    function formatDate(iso) {
+      if (!iso) return '';
+      try {
+        const d = new Date(iso);
+        return d.toLocaleDateString(lang === 'en' ? 'en-US' : 'ru-RU',
+          { day: 'numeric', month: 'short', year: 'numeric' });
+      } catch (_) { return iso; }
+    }
+
+    // ── Export current chat as .md ──
+
+    async function exportCurrentChat() {
+      if (!currentConvId) { alert(t('open_chat_first')); return; }
+      const data = await api(`/conversation/${currentConvId}`);
+      const conv = data.conversation;
+
+      let md = `# ${conv.title || t('chat_word')}\n\n`;
+      md += `> ${t('export_doc_meta')}: ${conv.email || ''}\n`;
+      md += `> ${t('big_md_date')}: ${formatDate(conv.created_time)}\n\n---\n\n`;
+
+      for (const msg of data.messages) {
+        const role = msg.role === 'user' ? `**${t('you')}:**` : '**Gemini:**';
+        md += `### ${role}\n\n${msg.content || ''}\n\n`;
+      }
+
+      if (data.canvas_artifacts.length > 0) {
+        md += '---\n\n## Canvas\n\n';
+        for (const art of data.canvas_artifacts) {
+          md += `### ${art.type || t('doc_word')}\n\n${art.content || ''}\n\n`;
+        }
+      }
+
+      downloadBlob(md, 'text/markdown',
+        (conv.title || 'chat').replace(/[<>:"/\\|?*]/g, '_').substring(0, 80) + '.md');
+    }
+
+    function downloadBlob(content, mime, fname) {
+      const blob = new Blob([content], { type: mime + '; charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = fname;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // ── Export menu / HTML / PDF / ZIP / JSON ──
+
+    function toggleExportMenu(e) {
+      e.stopPropagation();
+      const dd = document.getElementById('export-dropdown');
+      dd.style.display = dd.style.display === 'block' ? 'none' : 'block';
+    }
+    document.addEventListener('click', () => {
+      const dd = document.getElementById('export-dropdown');
+      if (dd) dd.style.display = 'none';
+    });
+
+    function exportZip() {
+      const accountId = document.getElementById('account-select').value;
+      window.location.href = `${API}/export-zip${accountId ? '?account_id=' + accountId : ''}`;
+      document.getElementById('status-text').textContent = t('dl_zip');
+    }
+
+    function exportJson() {
+      const accountId = document.getElementById('account-select').value;
+      window.location.href = `${API}/export-json${accountId ? '?account_id=' + accountId : ''}`;
+      document.getElementById('status-text').textContent = t('dl_json');
+    }
+
+    function buildChatHtml(conv, messages, canvas) {
+      const esc = escapeHtml;
+      let body = `<h1>${esc(conv.title || t('chat_word'))}</h1>`;
+      body += `<p class="meta">${esc(conv.email || '')} · ${formatDate(conv.created_time)}</p><hr>`;
+      for (const msg of messages) {
+        const who = msg.role === 'user' ? t('you') : 'Gemini';
+        body += `<div class="msg ${msg.role}"><div class="who">${who}</div>`
+          + `<div class="body">${renderMarkdown(cleanContent(msg.content || ''))}</div></div>`;
+      }
+      for (const art of (canvas || [])) {
+        body += `<div class="msg model"><div class="who">📄 ${esc(art.type || t('doc_word'))}</div>`
+          + `<div class="body">${renderMarkdown(cleanContent(art.content || ''))}</div></div>`;
+      }
+      return `<!DOCTYPE html><html lang="${lang}"><head><meta charset="UTF-8">
+<title>${esc(conv.title || t('chat_word'))}</title>
+<style>
+  body{font-family:system-ui,'Segoe UI',sans-serif;max-width:820px;margin:24px auto;padding:0 16px;line-height:1.6;color:#1a1b26}
+  h1{font-size:22px} .meta{color:#888;font-size:13px}
+  .msg{margin:14px 0;padding:12px 16px;border-radius:10px;border:1px solid #e2e2ef}
+  .msg.user{background:#eef2ff;border-left:3px solid #6b8afd}
+  .msg.model{background:#f6f8f3;border-left:3px solid #79b34f}
+  .who{font-weight:700;font-size:12px;margin-bottom:6px}
+  pre{background:#1a1b26;color:#e0e0ef;padding:12px;border-radius:8px;overflow-x:auto}
+  code{font-family:'Cascadia Code',Consolas,monospace;font-size:13px}
+  table{border-collapse:collapse} th,td{border:1px solid #ccc;padding:6px 10px}
+</style></head><body>${body}</body></html>`;
+    }
+
+    async function exportCurrentChatHtml() {
+      if (!currentConvId) { alert(t('open_chat_first')); return; }
+      const data = await api(`/conversation/${currentConvId}`);
+      const html = buildChatHtml(data.conversation, data.messages, data.canvas_artifacts);
+      downloadBlob(html, 'text/html',
+        (data.conversation.title || 'chat').replace(/[<>:"/\\|?*]/g, '_').substring(0, 80) + '.html');
+    }
+
+    async function printCurrentChat() {
+      if (!currentConvId) { alert(t('open_chat_first')); return; }
+      const data = await api(`/conversation/${currentConvId}`);
+      const html = buildChatHtml(data.conversation, data.messages, data.canvas_artifacts);
+      const w = window.open('', '_blank');
+      w.document.write(html);
+      w.document.close();
+      w.focus();
+      setTimeout(() => w.print(), 300);
+    }
+
+    // ── Dashboard ──
+
+    async function openDashboard() {
+      const container = document.getElementById('messages-container');
+      container.innerHTML = `<div class="loading"><div class="spinner"></div><p>${t('dash_calc')}</p></div>`;
+      document.getElementById('conv-title').textContent = t('dash_title');
+      currentConvId = null;
+
+      const accountId = document.getElementById('account-select').value;
+      try {
+        const d = await api('/dashboard', accountId ? { account_id: accountId } : {});
+        const stats = await api('/stats');
+        container.innerHTML = renderDashboard(d, stats);
+      } catch (err) {
+        container.innerHTML = `<div class="loading" style="color:#f7768e">${t('err_prefix')}: ${err.message}</div>`;
+      }
+    }
+
+    function barChart(rows, labelKey, valKey) {
+      const max = Math.max(1, ...rows.map(r => r[valKey] || 0));
+      let html = '';
+      for (const r of rows) {
+        const v = r[valKey] || 0;
+        const pct = (v / max * 100).toFixed(1);
+        html += `<div class="bar-row">
+          <div class="bar-label" title="${escapeHtml(String(r[labelKey]))}">${escapeHtml(String(r[labelKey] || '—'))}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+          <div class="bar-val">${v}</div>
+        </div>`;
+      }
+      return html;
+    }
+
+    function renderDashboard(d, stats) {
+      let html = '<div id="dashboard">';
+      html += `<div class="dash-cards">
+        <div class="dash-card"><div class="num">${stats.conversations}</div><div class="label">${t('dash_chats')}</div></div>
+        <div class="dash-card"><div class="num">${stats.messages}</div><div class="label">${t('dash_messages')}</div></div>
+        <div class="dash-card"><div class="num">${stats.canvas_artifacts}</div><div class="label">${t('dash_canvas')}</div></div>
+        <div class="dash-card"><div class="num">${stats.accounts}</div><div class="label">${t('dash_accounts')}</div></div>
+      </div>`;
+
+      if (d.by_month.length)
+        html += `<div class="dash-section"><h3>${t('dash_by_month')}</h3>${barChart(d.by_month, 'ym', 'n')}</div>`;
+      if (d.by_account.length > 1)
+        html += `<div class="dash-section"><h3>${t('dash_by_account')}</h3>${barChart(d.by_account, 'email', 'chats')}</div>`;
+      if (d.role_split.length)
+        html += `<div class="dash-section"><h3>${t('dash_roles')}</h3>${barChart(d.role_split, 'role', 'n')}</div>`;
+      if (d.canvas_by_type.length)
+        html += `<div class="dash-section"><h3>${t('dash_doc_types')}</h3>${barChart(d.canvas_by_type, 'type', 'n')}</div>`;
+      if (d.top_messages.length) {
+        html += `<div class="dash-section"><h3>${t('dash_longest')}</h3>`;
+        for (const c of d.top_messages) {
+          html += `<div class="bar-row"><div class="bar-label" style="width:auto;flex:1;text-align:left;cursor:pointer;color:#7aa2f7" onclick="openConversation('${escapeAttr(c.id)}')">${escapeHtml(c.title || t('untitled'))}</div><div class="bar-val">${c.message_count} ${t('msgs_suffix')}</div></div>`;
+        }
+        html += '</div>';
+      }
+      html += '</div>';
+      return html;
+    }
+
+    // ── Scheduled auto-backup ──
+
+    let _sysInfo = null;
+
+    async function openSchedule() {
+      document.getElementById('schedule-overlay').style.display = 'flex';
+      if (!_sysInfo) {
+        try { _sysInfo = await api('/system-info'); } catch (_) { _sysInfo = {}; }
+      }
+      const accInput = document.getElementById('sched-account');
+      const sel = document.getElementById('account-select').selectedOptions[0];
+      accInput.value = (sel && sel.value ? sel.textContent : '') ||
+        _sysInfo.default_account || (allAccounts[0] && allAccounts[0].email) || '';
+      buildScheduleCmd();
+    }
+
+    function closeSchedule() {
+      document.getElementById('schedule-overlay').style.display = 'none';
+    }
+
+    function buildScheduleCmd() {
+      const acc = document.getElementById('sched-account').value.trim() || 'you@gmail.com';
+      const freq = document.getElementById('sched-freq').value;
+      const time = document.getElementById('sched-time').value || '03:00';
+      const baseDir = (_sysInfo && _sysInfo.base_dir) || '<path to Gemini_Vault>';
+      const bat = baseDir + '\\backup.bat';
+      const cmd = `schtasks /create /tn "GeminiVaultBackup" /sc ${freq} /st ${time} ` +
+        `/tr "\\"${bat}\\" ${acc}" /f`;
+      document.getElementById('sched-cmd').value = cmd;
+    }
+
+    document.getElementById('sched-account').addEventListener('input', buildScheduleCmd);
+
+    function copyScheduleCmd() {
+      const ta = document.getElementById('sched-cmd');
+      ta.select();
+      try { navigator.clipboard.writeText(ta.value); } catch (_) { document.execCommand('copy'); }
+      document.getElementById('status-text').textContent = t('sched_copied');
+    }
+
+    // ── Import from URL ──
+
+    async function importFromUrl() {
+      const urlInput = document.getElementById('import-url');
+      const url = urlInput.value.trim();
+      if (!url || !url.includes('gemini.google.com')) {
+        alert(t('invalid_link'));
+        return;
+      }
+
+      const status = document.getElementById('status-text');
+      status.textContent = t('scrape_start');
+
+      try {
+        const resp = await fetch('/api/scrape', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+        const data = await resp.json();
+        if (data.error) {
+          alert(t('scrape_cli_hint', url));
+          status.textContent = 'Scraper: Playwright required';
+        } else {
+          status.textContent = `Imported: ${data.title || 'chat'}`;
+          chatOffset = 0; allChats = []; loadChats();
+        }
+      } catch (e) {
+        alert(t('scrape_cli_full', url));
+        status.textContent = 'Scraper: run via terminal';
+      }
+      urlInput.value = '';
+    }
+
+    document.getElementById('import-url')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') importFromUrl();
+    });
+
+    // ── Export all chats (single big .md) ──
+
+    async function exportAllChats() {
+      const statusEl = document.getElementById('status-text');
+      statusEl.textContent = t('export_running');
+
+      const accountId = document.getElementById('account-select').value;
+      const params = { limit: 10000 };
+      if (accountId) params.account_id = accountId;
+
+      const convs = await api('/conversations', params);
+      let fullMd = `# ${t('big_md_title')}\n\n`;
+      fullMd += `> ${t('big_md_date')}: ${new Date().toLocaleString()}\n`;
+      fullMd += `> ${t('big_md_chats')}: ${convs.length}\n\n---\n\n`;
+
+      fullMd += `## ${t('big_md_toc')}\n\n`;
+      for (let i = 0; i < convs.length; i++) {
+        fullMd += `${i + 1}. ${convs[i].title || t('untitled')} (${convs[i].message_count})\n`;
+      }
+      fullMd += '\n---\n\n';
+
+      for (let i = 0; i < convs.length; i++) {
+        statusEl.textContent = t('export_progress', i + 1, convs.length);
+        const data = await api(`/conversation/${convs[i].id}`);
+        const conv = data.conversation;
+        fullMd += `# ${i + 1}. ${conv.title || t('chat_word')}\n\n`;
+        fullMd += `> ${conv.email || ''} | ${formatDate(conv.created_time)}\n\n`;
+        for (const msg of data.messages) {
+          const role = msg.role === 'user' ? `**${t('you')}:**` : '**Gemini:**';
+          fullMd += `### ${role}\n\n${cleanContent(msg.content || '')}\n\n`;
+        }
+        fullMd += '\n---\n\n';
+      }
+
+      const dateStr = new Date().toISOString().substring(0, 10);
+      downloadBlob(fullMd, 'text/markdown', `gemini_vault_all_chats_${dateStr}.md`);
+      statusEl.textContent = t('exported_n', convs.length);
+    }
+
+    // ── Keyboard shortcuts ──
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        document.getElementById('canvas-overlay').classList.remove('visible');
+        document.getElementById('schedule-overlay').style.display = 'none';
+        const dd = document.getElementById('export-dropdown');
+        if (dd) dd.style.display = 'none';
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        document.getElementById('search-global').focus();
+      }
+      if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !isInputFocused()) {
+        e.preventDefault();
+        navigateChats(e.key === 'ArrowDown' ? 1 : -1);
+      }
+    });
+
+    function isInputFocused() {
+      const el = document.activeElement;
+      return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+    }
+
+    function navigateChats(direction) {
+      if (currentTab !== 'chats' || allChats.length === 0) return;
+      const idx = allChats.findIndex(c => c.id === currentConvId);
+      const next = Math.max(0, Math.min(allChats.length - 1, idx + direction));
+      if (next !== idx || idx === -1) {
+        openConversation(allChats[next >= 0 ? next : 0].id);
+      }
+    }
+
+    // ── Scrape Gemini ──
+
+    let scrapePolling = null;
+
+    async function startScrapeAll() {
+      const panel = document.getElementById('scrape-panel');
+      const logEl = document.getElementById('scrape-log');
+      const progress = document.getElementById('scrape-progress');
+      const titleEl = document.getElementById('scrape-title');
+
+      panel.style.display = 'block';
+      logEl.textContent = 'Starting...\n';
+      progress.textContent = '';
+      titleEl.textContent = 'Scraping Gemini...';
+
+      const selectedOpt = document.getElementById('account-select').selectedOptions[0];
+      let account = (selectedOpt && selectedOpt.value) ? selectedOpt.textContent : '';
+      if (!account && allAccounts.length > 0) account = allAccounts[0].email;
+      if (!account) {
+        account = prompt(t('scrape_account_prompt'), '') || '';
+        if (!account) { logEl.textContent += t('scrape_cancel_noacc') + '\n'; return; }
+      }
+
+      try {
+        const resp = await fetch('/api/scrape-all', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ account }),
+        });
+        const data = await resp.json();
+        if (data.error) {
+          logEl.textContent += 'Error: ' + data.error + '\n';
+          if (data.error.includes('already running')) titleEl.textContent = 'Scraper already running';
+          return;
+        }
+        logEl.textContent += 'Scraper started (PID ' + data.pid + ')\n';
+        if (scrapePolling) clearInterval(scrapePolling);
+        scrapePolling = setInterval(pollScrapeStatus, 2000);
+      } catch (e) {
+        logEl.textContent += 'Error: ' + e.message + '\n';
+        logEl.textContent += '\nPlaywright not installed?\n  pip install playwright\n  playwright install chromium\n';
+      }
+    }
+
+    async function pollScrapeStatus() {
+      try {
+        const resp = await fetch('/api/scrape-status');
+        const data = await resp.json();
+
+        const logEl = document.getElementById('scrape-log');
+        const progress = document.getElementById('scrape-progress');
+        const titleEl = document.getElementById('scrape-title');
+
+        logEl.textContent = data.log || '';
+        logEl.scrollTop = logEl.scrollHeight;
+
+        const lines = (data.log || '').split('\n');
+        const lastProgress = lines.filter(l => l.includes('[PROGRESS]')).pop();
+        if (lastProgress) {
+          const match = lastProgress.match(/\[PROGRESS\]\s*(\d+\/\d+)/);
+          progress.textContent = match ? match[1] : '';
+        }
+
+        if (!data.running) {
+          clearInterval(scrapePolling);
+          scrapePolling = null;
+
+          const isDone = data.log && data.log.includes('[DONE]');
+          const isError = data.log && data.log.includes('[ERROR]');
+          titleEl.textContent = isDone ? t('scrape_done') : isError ? t('scrape_failed') : t('scrape_stopped');
+          progress.textContent = isDone ? 'OK' : '';
+
+          chatOffset = 0; allChats = [];
+          await loadChats();
+          if (currentTab === 'canvas') { canvasItems = []; await loadCanvasList(); }
+
+          lastStats = await api('/stats');
+          refreshStatsLine();
+        }
+      } catch (_) {}
+    }
+
+    async function stopScraping() {
+      try { await fetch('/api/scrape-stop', { method: 'POST' }); } catch (_) {}
+      if (scrapePolling) { clearInterval(scrapePolling); scrapePolling = null; }
+      document.getElementById('scrape-title').textContent = t('scrape_stopped');
+      document.getElementById('scrape-progress').textContent = '';
+    }
+
+    function closeScrapePanel() {
+      document.getElementById('scrape-panel').style.display = 'none';
+      if (scrapePolling) { clearInterval(scrapePolling); scrapePolling = null; }
+    }
+
+    // ── Start ──
+    init();
+  </script>
+</body>
+</html>

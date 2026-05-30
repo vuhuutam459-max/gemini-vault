@@ -1,0 +1,110 @@
+{
+  "export_metadata": {
+    "version": "1.0.0",
+    "export_date": "2026-05-29T10:00:00Z",
+    "account_email": "demo@example.com",
+    "total_conversations": 6,
+    "total_messages": 18,
+    "total_canvas_artifacts": 3,
+    "errors": 0,
+    "source": "demo_dataset"
+  },
+  "conversations": [
+    {
+      "id": "demo-001-python",
+      "title": "Python: async/await tutorial",
+      "messages": [
+        {"role": "user", "content": "Explain async/await in Python with examples", "timestamp": 1736937600000},
+        {"role": "model", "content": "Asyncio is Python's built-in library for writing concurrent code using the async/await syntax.\n\n## Basic Example\n\n```python\nimport asyncio\n\nasync def main():\n    print(\"Hello\")\n    await asyncio.sleep(1)\n    print(\"World\")\n\nasyncio.run(main())\n```\n\nThe `async` keyword defines a coroutine function. The `await` keyword pauses execution until the awaited coroutine completes.", "timestamp": 1736937605000},
+        {"role": "user", "content": "How about error handling?", "timestamp": 1736937660000},
+        {"role": "model", "content": "Use try/except inside async functions:\n\n```python\nasync def fetch(url):\n    try:\n        response = await aiohttp.get(url)\n        return await response.json()\n    except aiohttp.ClientError as e:\n        print(f\"Error: {e}\")\n        return None\n```", "timestamp": 1736937665000}
+      ],
+      "canvas_artifacts": [
+        {
+          "id": "demo-canvas-async",
+          "type": "code",
+          "content": "```python\nimport asyncio\nimport aiohttp\n\nasync def fetch_all(urls):\n    \"\"\"Fetch several URLs concurrently.\"\"\"\n    async with aiohttp.ClientSession() as session:\n        tasks = [session.get(url) for url in urls]\n        return await asyncio.gather(*tasks)\n```",
+          "raw_html": "<pre><code>fetch_all.py</code></pre>",
+          "parent_message_index": 1
+        }
+      ],
+      "created_time": 1736937600000,
+      "updated_time": 1736937665000
+    },
+    {
+      "id": "demo-002-latex",
+      "title": "Explain the Schrodinger equation",
+      "messages": [
+        {"role": "user", "content": "Explain the Schrodinger equation in simple terms and write its formula.", "timestamp": 1738396800000},
+        {"role": "model", "content": "The Schrodinger equation describes how the quantum state of a system evolves over time. In its time-dependent form:\n\n$$i\\hbar\\frac{\\partial}{\\partial t}\\Psi(\\mathbf{r}, t) = \\hat{H}\\Psi(\\mathbf{r}, t)$$\n\nwhere $\\Psi$ is the wave function, $\\hbar$ is the reduced Planck constant, and $\\hat{H}$ is the Hamiltonian operator (the total energy of the system).", "timestamp": 1738396808000},
+        {"role": "user", "content": "And the stationary form?", "timestamp": 1738396900000},
+        {"role": "model", "content": "For states with a definite energy $E$:\n\n$$\\hat{H}\\psi = E\\psi$$\n\nThis is an eigenvalue problem: the allowed energies $E$ are the eigenvalues of the Hamiltonian.", "timestamp": 1738396905000}
+      ],
+      "canvas_artifacts": [],
+      "created_time": 1738396800000,
+      "updated_time": 1738396905000
+    },
+    {
+      "id": "demo-003-recipe",
+      "title": "Quick dinner recipe",
+      "messages": [
+        {"role": "user", "content": "Suggest a 15-minute pasta dinner recipe.", "timestamp": 1740816000000},
+        {"role": "model", "content": "**Aglio e olio in 15 minutes**\n\nIngredients: spaghetti, 4 garlic cloves, olive oil, chili flakes, parsley, parmesan.\n\n1. Boil the spaghetti until al dente.\n2. Warm the oil with thinly sliced garlic and chili (don't burn it!).\n3. Toss the pasta with the oil, add a splash of pasta water.\n4. Finish with parsley and parmesan.\n\nDone! 🍝", "timestamp": 1740816010000}
+      ],
+      "canvas_artifacts": [
+        {
+          "id": "demo-canvas-recipe",
+          "type": "text",
+          "content": "# Aglio e olio\n\n**Time:** 15 minutes · **Servings:** 2\n\n## Ingredients\n- Spaghetti — 200 g\n- Garlic — 4 cloves\n- Olive oil — 4 tbsp\n- Chili flakes — to taste\n- Parsley, parmesan\n\n## Steps\n1. Boil spaghetti al dente.\n2. Warm the oil with garlic and chili.\n3. Combine, add pasta water.\n4. Serve with parsley and parmesan.",
+          "raw_html": "<h1>Aglio e olio</h1>",
+          "parent_message_index": 1
+        }
+      ],
+      "created_time": 1740816000000,
+      "updated_time": 1740816010000
+    },
+    {
+      "id": "demo-004-cnn",
+      "title": "Neural network architecture",
+      "messages": [
+        {"role": "user", "content": "Design a simple CNN for image classification", "timestamp": 1742601600000},
+        {"role": "model", "content": "## Simple CNN Architecture\n\n| Layer | Output Shape | Parameters |\n|-------|-------------|------------|\n| Conv2D(32, 3x3) | 26x26x32 | 320 |\n| MaxPool(2x2) | 13x13x32 | 0 |\n| Conv2D(64, 3x3) | 11x11x64 | 18,496 |\n| MaxPool(2x2) | 5x5x64 | 0 |\n| Flatten | 1600 | 0 |\n| Dense(128) | 128 | 204,928 |\n| Dense(10) | 10 | 1,290 |\n\n```python\nimport torch.nn as nn\n\nclass SimpleCNN(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.features = nn.Sequential(\n            nn.Conv2d(1, 32, 3), nn.ReLU(), nn.MaxPool2d(2),\n            nn.Conv2d(32, 64, 3), nn.ReLU(), nn.MaxPool2d(2),\n        )\n        self.classifier = nn.Sequential(\n            nn.Flatten(), nn.Linear(1600, 128), nn.ReLU(), nn.Linear(128, 10),\n        )\n```", "timestamp": 1742601610000}
+      ],
+      "canvas_artifacts": [],
+      "created_time": 1742601600000,
+      "updated_time": 1742601610000
+    },
+    {
+      "id": "demo-005-travel",
+      "title": "Weekend trip plan",
+      "messages": [
+        {"role": "user", "content": "Plan a 2-day trip to the mountains.", "timestamp": 1743235200000},
+        {"role": "model", "content": "**Day 1:** leave in the morning, trek a marked trail, lunch at a viewpoint, rest at a campsite in the evening.\n\n**Day 2:** sunrise at the summit, an easy route down, lunch in the village, back home by evening.\n\nDon't forget: water, layered clothing, first-aid kit, charged phone.", "timestamp": 1743235210000},
+        {"role": "user", "content": "What food should I bring?", "timestamp": 1743235300000},
+        {"role": "model", "content": "Nuts, dried fruit, energy bars, sandwiches, a thermos of tea. Everything light and high-calorie.", "timestamp": 1743235305000}
+      ],
+      "canvas_artifacts": [],
+      "created_time": 1743235200000,
+      "updated_time": 1743235305000
+    },
+    {
+      "id": "demo-006-langs",
+      "title": "Comparison of programming languages",
+      "messages": [
+        {"role": "user", "content": "Make a comparison table of Python, Go and Rust by speed and simplicity.", "timestamp": 1745740800000},
+        {"role": "model", "content": "Here is a short comparison — details in the Canvas on the right.", "timestamp": 1745740808000}
+      ],
+      "canvas_artifacts": [
+        {
+          "id": "demo-canvas-langs",
+          "type": "text",
+          "content": "# Python vs Go vs Rust\n\n| Criterion     | Python | Go     | Rust   |\n|---------------|--------|--------|--------|\n| Speed         | ★★☆    | ★★★    | ★★★    |\n| Simplicity    | ★★★    | ★★★    | ★★☆    |\n| Memory        | GC     | GC     | no GC  |\n| Project start | very fast | fast | medium |\n\n**Bottom line:** Python for prototypes and scripts, Go for backends and services, Rust where performance and memory safety are critical.",
+          "raw_html": "<h1>Python vs Go vs Rust</h1>",
+          "parent_message_index": 1
+        }
+      ],
+      "created_time": 1745740800000,
+      "updated_time": 1745740808000
+    }
+  ]
+}

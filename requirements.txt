@@ -1,0 +1,19 @@
+# Gemini Vault — Python dependencies
+# ============================================================
+# The CORE (import, search, viewer, export) needs NO dependencies —
+# it runs on the Python 3.10+ standard library
+# (sqlite3, json, http.server — all built in).
+#
+# The dependencies below are OPTIONAL and only needed for specific features.
+# Install: pip install -r requirements.txt
+# ============================================================
+
+# --- Chat scraper for gemini.google.com (processor/scrape_gemini_url.py) ---
+# Only needed if you download chats straight from the browser.
+# After installing, be sure to run: playwright install chromium
+playwright>=1.40
+
+# --- Better HTML parsing for Takeout (processor/parsers.py) ---
+# Without these the built-in parser is used (works, but rougher).
+beautifulsoup4>=4.12
+lxml>=5.0
