@@ -47,6 +47,7 @@ The core needs no dependencies — just the Python 3.10+ standard library.
 - 👥 **Multiple accounts** in one database
 - ♻️ **Incremental**: SHA256 deduplication — only new/changed chats are pulled
 - 🌐 **Bilingual UI** (English ⇄ Russian) with a one-click toggle
+- 🧩 **Multi-source import**: also reads **ChatGPT** and **Claude** exports — one searchable vault for all your AI chats
 
 ### With your own data
 
@@ -73,13 +74,42 @@ python viewer/serve.py
 You can also use the browser extractor scripts in `extractor/` (Tampermonkey or
 a one-off console paste) — see `extractor/README_install.md`.
 
+### Importing from ChatGPT & Claude
+
+Gemini Vault isn't only for Gemini — it can ingest your **ChatGPT** and
+**Claude** history too, so all your AI conversations live in one searchable,
+offline vault.
+
+**1. Get your export**
+
+- **ChatGPT:** Settings → **Data controls** → **Export data** → confirm. You'll
+  receive an email with a `.zip`; inside it is `conversations.json`.
+- **Claude:** Settings → **Privacy** (Account) → **Export data** → confirm. You'll
+  receive an email with an archive containing `conversations.json`.
+
+**2. Import it** (the format is auto-detected — no flags needed):
+
+```bash
+python processor/parse_and_index.py path/to/conversations.json
+python viewer/serve.py
+```
+
+ChatGPT chats are grouped under the account **`ChatGPT`** and Claude chats under
+**`Claude`**, so you can filter by source in the viewer. Re-importing a newer
+export only adds what changed (same SHA256 deduplication as Gemini).
+
+> Notes: only the **active** message thread of each ChatGPT chat is imported
+> (regenerated/branch variants are skipped), and full-text search works across
+> all sources automatically.
+
 ## Commands
 
 ```bash
 # Import
-python processor/import_takeout.py takeout.zip      # from a Takeout ZIP
-python processor/parse_and_index.py export.json     # from a JSON export
-python processor/parse_and_index.py --stats         # database statistics
+python processor/import_takeout.py takeout.zip          # from a Takeout ZIP
+python processor/parse_and_index.py export.json         # Gemini JSON export
+python processor/parse_and_index.py conversations.json  # ChatGPT / Claude export (auto-detected)
+python processor/parse_and_index.py --stats             # database statistics
 
 # Viewer
 python viewer/serve.py                  # port 8642
