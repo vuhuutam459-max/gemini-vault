@@ -17,6 +17,13 @@
   <!-- marked.js for Markdown -->
   <script src="lib/marked.min.js" onerror="this.src='https://cdn.jsdelivr.net/npm/marked/marked.min.js'"></script>
 
+  <!-- Cyberpunk fonts for the neon theme (Orbitron display · Space Grotesk UI · JetBrains Mono data).
+       Online-only eye candy: when offline the CSS falls back to system mono/sans, so nothing breaks. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@600;700;900&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+
   <!-- Apply saved theme before first paint to avoid a flash -->
   <script>try { var _t = localStorage.getItem('gv_theme'); if (_t) document.documentElement.setAttribute('data-theme', _t); } catch (e) {}</script>
 
@@ -82,7 +89,8 @@
 
     #theme-toggle {
       padding: 6px 10px; background: #1a1a2e; border: 1px solid #3b3b52;
-      border-radius: 8px; color: #bb9af7; font-size: 13px; cursor: pointer;
+      border-radius: 8px; color: #bb9af7; font-size: 12px; font-weight: 600;
+      letter-spacing: 0.04em; cursor: pointer;
     }
     #theme-toggle:hover { border-color: #bb9af7; }
 
@@ -97,10 +105,15 @@
       --neon-green: #00ff9c;
       --neon-border: #16263f;
       --neon-text: #d7e6ff;
-      --neon-dim: #5d7290;
+      --neon-dim: #8298ba;            /* lifted from #5d7290 → ~6:1 contrast for small labels (WCAG AA) */
+      /* cyberpunk type stack — all with system fallbacks so offline still renders */
+      --neon-display: 'Orbitron', 'Segoe UI', system-ui, sans-serif;       /* brand / HUD headings */
+      --neon-ui: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;       /* titles, body, buttons */
+      --neon-mono: 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace; /* data, meta, code */
     }
     html[data-theme="neon"] body {
       color: var(--neon-text);
+      font-family: var(--neon-ui);
       background:
         radial-gradient(1200px 600px at 82% -12%, rgba(255,31,143,0.12), transparent 60%),
         radial-gradient(1000px 700px at -5% 110%, rgba(0,234,255,0.12), transparent 55%),
@@ -112,6 +125,47 @@
         linear-gradient(rgba(0,234,255,0.045) 1px, transparent 1px),
         linear-gradient(90deg, rgba(0,234,255,0.045) 1px, transparent 1px);
       background-size: 42px 42px;
+    }
+
+    /* ── neon typography: Orbitron (display) · Space Grotesk (UI) · JetBrains Mono (data) ── */
+    html[data-theme="neon"] #sidebar-header h1 {
+      font-family: var(--neon-display);
+      font-weight: 900; text-transform: uppercase; letter-spacing: 0.14em; font-size: 16px;
+    }
+    html[data-theme="neon"] .dash-section h3 {
+      font-family: var(--neon-display);
+      font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+    }
+    html[data-theme="neon"] #conv-title,
+    html[data-theme="neon"] .chat-item-title {
+      font-family: var(--neon-ui); font-weight: 600; letter-spacing: 0.01em;
+    }
+    /* the hacker/data layer — everything numeric or technical is monospaced */
+    html[data-theme="neon"] .chat-item-meta,
+    html[data-theme="neon"] .dash-card .num,
+    html[data-theme="neon"] .dash-card .label,
+    html[data-theme="neon"] .message-role,
+    html[data-theme="neon"] #account-select,
+    html[data-theme="neon"] #search-global,
+    html[data-theme="neon"] #chat-filter {
+      font-family: var(--neon-mono);
+    }
+    html[data-theme="neon"] .dash-card .num {
+      font-weight: 700; font-variant-numeric: tabular-nums;  /* tabular figures: stats don't jitter */
+    }
+    html[data-theme="neon"] .dash-card .label,
+    html[data-theme="neon"] .chat-item-meta {
+      text-transform: uppercase; letter-spacing: 0.08em; font-size: 10.5px;
+    }
+    html[data-theme="neon"] .message-content pre,
+    html[data-theme="neon"] .message-content code {
+      font-family: var(--neon-mono);
+    }
+    html[data-theme="neon"] #lang-toggle,
+    html[data-theme="neon"] #dash-btn,
+    html[data-theme="neon"] #export-btn,
+    html[data-theme="neon"] #theme-toggle {
+      font-family: var(--neon-mono); text-transform: uppercase; letter-spacing: 0.06em;
     }
     html[data-theme="neon"] #sidebar { background: rgba(7,9,14,0.92); border-right: 1px solid var(--neon-border); }
     html[data-theme="neon"] #sidebar-header { border-bottom: 1px solid var(--neon-border); }
@@ -420,7 +474,7 @@
     <div id="main-header">
       <div id="conv-title">Gemini Vault</div>
       <button id="lang-toggle" onclick="toggleLang()">RU</button>
-      <button id="theme-toggle" onclick="toggleTheme()" data-i18n-title="theme_title" title="Neon mode">🌃</button>
+      <button id="theme-toggle" onclick="toggleTheme()" data-i18n-title="theme_title" title="Neon mode">NEON</button>
       <button id="dash-btn" onclick="openDashboard()" data-i18n-title="dashboard_title"
         style="padding:6px 12px;background:#24283b;border:1px solid #3b3b52;border-radius:8px;color:#bb9af7;font-size:12px;cursor:pointer"
         data-i18n="dashboard_btn">📊 Dashboard</button>
@@ -697,7 +751,7 @@
       if (theme === 'neon') document.documentElement.setAttribute('data-theme', 'neon');
       else document.documentElement.removeAttribute('data-theme');
       const btn = document.getElementById('theme-toggle');
-      if (btn) btn.textContent = theme === 'neon' ? '☀️' : '🌃';
+      if (btn) btn.textContent = theme === 'neon' ? 'LIGHT' : 'NEON';
     }
 
     function toggleTheme() {
