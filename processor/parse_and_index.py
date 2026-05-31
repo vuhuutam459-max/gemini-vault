@@ -4,8 +4,9 @@ parse_and_index.py
 Import Gemini Vault JSON dumps → SQLite + FTS5.
 
 Usage:
-  python parse_and_index.py                    # all JSON files from Source_Accounts/
+  python parse_and_index.py                    # all .json/.zip from Source_Accounts/
   python parse_and_index.py path/to/export.json  # a specific file
+  python parse_and_index.py path/to/chatgpt.zip  # ChatGPT/Claude export ZIP (as-is)
   python parse_and_index.py --stats            # database statistics
 """
 
@@ -18,6 +19,7 @@ import re
 import sqlite3
 import sys
 import tempfile
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -245,10 +247,33 @@ def save_canvas_file(conv_id: str, art_id: str, artifact: dict) -> None:
     path.write_text(header + content, encoding="utf-8")
 
 
-def process_export_file(conn: sqlite3.Connection, filepath: Path) -> dict:
-    """Processes a single export JSON file. Returns statistics."""
+def _load_export_raw(filepath: Path):
+    """Load the raw export object from a .json file or a ChatGPT/Claude .zip.
+
+    ChatGPT and Claude "Export data" archives bundle a ``conversations.json``
+    alongside other files — we read that member directly so the user can pass
+    the .zip as-is. (Google Takeout archives have a different layout and are
+    handled by import_takeout.py.)
+    """
+    if filepath.suffix.lower() == ".zip":
+        with zipfile.ZipFile(filepath) as zf:
+            member = next(
+                (n for n in zf.namelist() if n.rsplit("/", 1)[-1] == "conversations.json"),
+                None,
+            )
+            if member is None:
+                raise ValueError(
+                    "no conversations.json inside the archive — for Google "
+                    "Takeout ZIPs use import_takeout.py instead"
+                )
+            return json.loads(zf.read(member).decode("utf-8"))
     with open(filepath, "r", encoding="utf-8") as f:
-        raw = json.load(f)
+        return json.load(f)
+
+
+def process_export_file(conn: sqlite3.Connection, filepath: Path) -> dict:
+    """Processes a single export file (.json, or a ChatGPT/Claude .zip)."""
+    raw = _load_export_raw(filepath)
 
     # Normalize ChatGPT/Claude exports to canonical form. A file already in
     # canonical (Gemini Vault) form is returned unchanged.
@@ -332,12 +357,12 @@ def main():
         files = [Path(a) for a in args if Path(a).is_file()]
     else:
         SOURCE_DIR.mkdir(parents=True, exist_ok=True)
-        files = sorted(SOURCE_DIR.glob("*.json"))
+        files = sorted(SOURCE_DIR.glob("*.json")) + sorted(SOURCE_DIR.glob("*.zip"))
 
     if not files:
-        print("No JSON files to import.")
-        print(f"  Put export files into: {SOURCE_DIR}")
-        print(f"  Or pass a path: python parse_and_index.py /path/to/export.json")
+        print("No export files to import.")
+        print(f"  Put export files (.json or ChatGPT/Claude .zip) into: {SOURCE_DIR}")
+        print(f"  Or pass a path: python parse_and_index.py /path/to/export.zip")
         conn.close()
         return
 

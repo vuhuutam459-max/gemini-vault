@@ -244,6 +244,15 @@ class VaultHandler(SimpleHTTPRequestHandler):
             ORDER BY chats DESC
         """).fetchall()
 
+        # Chats per provider (Gemini / ChatGPT / Claude)
+        by_source = conn.execute(f"""
+            SELECT COALESCE(c.source, 'gemini') AS source, count(*) AS n
+            FROM conversations c
+            {where}
+            GROUP BY COALESCE(c.source, 'gemini')
+            ORDER BY n DESC
+        """, args).fetchall()
+
         # Message distribution by role
         role_join = "JOIN conversations c ON m.conversation_id = c.id"
         role_rows = conn.execute(f"""
@@ -284,6 +293,7 @@ class VaultHandler(SimpleHTTPRequestHandler):
         return {
             "by_month": [dict(r) for r in by_month],
             "by_account": [dict(r) for r in by_account],
+            "by_source": [dict(r) for r in by_source],
             "role_split": [dict(r) for r in role_rows],
             "canvas_by_type": [dict(r) for r in canvas_by_type],
             "top_messages": [dict(r) for r in top_messages],

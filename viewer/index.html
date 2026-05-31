@@ -447,7 +447,7 @@
         uploaded_file: 'Uploaded file', canvas_word: 'Canvas', source: 'Source', chat_colon: 'Chat',
         dash_title: '📊 Dashboard', dash_calc: 'Computing stats...',
         dash_chats: 'Chats', dash_messages: 'Messages', dash_canvas: 'Canvas / documents', dash_accounts: 'Accounts',
-        dash_by_month: 'Activity by month', dash_by_account: 'Chats by account',
+        dash_by_month: 'Activity by month', dash_by_account: 'Chats by account', dash_by_source: 'Chats by source',
         dash_roles: 'Messages by role', dash_doc_types: 'Documents by type', dash_longest: 'Longest chats',
         msgs_suffix: 'msgs',
         export_running: 'Exporting all chats...', export_progress: (i, n) => `Exporting ${i}/${n}...`,
@@ -504,7 +504,7 @@
         uploaded_file: 'Загруженный файл', canvas_word: 'Canvas', source: 'Источник', chat_colon: 'Чат',
         dash_title: '📊 Дашборд', dash_calc: 'Считаем статистику...',
         dash_chats: 'Чатов', dash_messages: 'Сообщений', dash_canvas: 'Canvas / документов', dash_accounts: 'Аккаунтов',
-        dash_by_month: 'Активность по месяцам', dash_by_account: 'Чаты по аккаунтам',
+        dash_by_month: 'Активность по месяцам', dash_by_account: 'Чаты по аккаунтам', dash_by_source: 'Чаты по источникам',
         dash_roles: 'Сообщения по ролям', dash_doc_types: 'Документы по типам', dash_longest: 'Самые длинные чаты',
         msgs_suffix: 'сообщ.',
         export_running: 'Экспорт всех чатов...', export_progress: (i, n) => `Экспорт ${i}/${n}...`,
@@ -1287,6 +1287,11 @@
         html += `<div class="dash-section"><h3>${t('dash_by_month')}</h3>${barChart(d.by_month, 'ym', 'n')}</div>`;
       if (d.by_account.length > 1)
         html += `<div class="dash-section"><h3>${t('dash_by_account')}</h3>${barChart(d.by_account, 'email', 'chats')}</div>`;
+      // "By source" slice — only meaningful when more than one provider is present.
+      if ((d.by_source || []).length > 1) {
+        const srcRows = d.by_source.map(r => ({ label: sourceLabel(r.source), n: r.n }));
+        html += `<div class="dash-section"><h3>${t('dash_by_source')}</h3>${barChart(srcRows, 'label', 'n')}</div>`;
+      }
       if (d.role_split.length)
         html += `<div class="dash-section"><h3>${t('dash_roles')}</h3>${barChart(d.role_split, 'role', 'n')}</div>`;
       if (d.canvas_by_type.length)
