@@ -29,7 +29,7 @@
     }
     #sidebar-header { padding: 16px; border-bottom: 1px solid #2a2a3a; }
     #sidebar-header h1 { font-size: 18px; font-weight: 700; color: #7aa2f7; margin: 0 0 12px; }
-    #account-select {
+    #account-select, #source-filter {
       width: 100%; padding: 8px 12px; background: #1a1a2e; color: #c0caf5;
       border: 1px solid #3b3b52; border-radius: 8px; font-size: 13px;
     }
@@ -247,6 +247,9 @@
       <select id="account-select">
         <option value="" data-i18n="all_accounts">All accounts</option>
       </select>
+      <select id="source-filter" style="margin-top:8px">
+        <option value="all" data-i18n="all_sources">All sources</option>
+      </select>
     </div>
     <!-- Tabs -->
     <div style="display:flex;border-bottom:1px solid #2a2a3a">
@@ -405,7 +408,7 @@
     // ── i18n: English (default) + Russian, toggled in the UI ──
     const I18N = {
       en: {
-        all_accounts: 'All accounts', tab_chats: 'Chats', tab_docs: 'Documents',
+        all_accounts: 'All accounts', all_sources: 'All sources', tab_chats: 'Chats', tab_docs: 'Documents',
         filter_ph: 'Filter...', sort_title: 'Sorting',
         sort_newest: 'Newest first', sort_oldest: 'Oldest first',
         sort_msgs: 'Most messages', sort_title_az: 'Title (A–Z)',
@@ -462,7 +465,7 @@
         export_doc_meta: 'Account',
       },
       ru: {
-        all_accounts: 'Все аккаунты', tab_chats: 'Чаты', tab_docs: 'Документы',
+        all_accounts: 'Все аккаунты', all_sources: 'Все источники', tab_chats: 'Чаты', tab_docs: 'Документы',
         filter_ph: 'Фильтр...', sort_title: 'Сортировка',
         sort_newest: 'Новые сверху', sort_oldest: 'Старые сверху',
         sort_msgs: 'Больше сообщений', sort_title_az: 'По названию (А–Я)',
@@ -546,7 +549,8 @@
       lang = (lang === 'en') ? 'ru' : 'en';
       localStorage.setItem('gv_lang', lang);
       applyStaticI18n();
-      // Re-render dynamic views
+      // Re-render dynamic views (filters carry localized labels built via t())
+      if (allChats.length) { renderYearFilter(); renderSourceFilter(); }
       if (currentTab === 'chats') renderChatList(); else renderCanvasList();
       const title = document.getElementById('conv-title').textContent;
       if (currentConvId) openConversation(currentConvId);
@@ -614,6 +618,11 @@
         allChats = [];
         loadChats();
       });
+      // Source filter is purely client-side over the already-loaded chats.
+      document.getElementById('source-filter').addEventListener('change', (e) => {
+        selectedSource = e.target.value;
+        renderChatList();
+      });
     }
 
     // ── Chat List ──
@@ -625,8 +634,10 @@
 
       allChats = await api('/conversations', params);
       selectedYear = 'all';
+      selectedSource = 'all';
 
       renderYearFilter();
+      renderSourceFilter();
       renderChatList();
       document.getElementById('load-more-btn').style.display = 'none';
     }
@@ -649,6 +660,46 @@
     // ── Year filter ──
 
     let selectedYear = 'all';
+    let selectedSource = 'all';
+
+    // Provider id (stored in DB) -> human label. Unknown ids are Title-cased.
+    const SOURCE_LABELS = { gemini: 'Gemini', chatgpt: 'ChatGPT', claude: 'Claude' };
+    function sourceLabel(s) {
+      if (!s) return 'Gemini';
+      return SOURCE_LABELS[s] || (s.charAt(0).toUpperCase() + s.slice(1));
+    }
+    // Color-coded provider pill rendered before a chat title in the mixed view.
+    const SOURCE_COLORS = { gemini: '#7aa2f7', chatgpt: '#10a37f', claude: '#d97757' };
+    function sourceBadgeHtml(s) {
+      const key = s || 'gemini';
+      const color = SOURCE_COLORS[key] || '#9aa5ce';
+      return `<span style="display:inline-block;font-size:9px;font-weight:700;text-transform:uppercase;`
+        + `letter-spacing:0.04em;padding:1px 5px;margin-right:6px;border-radius:4px;vertical-align:middle;`
+        + `color:${color};border:1px solid ${color}55;background:${color}1a">${escapeHtml(sourceLabel(key))}</span>`;
+    }
+
+    // Rebuild the source dropdown from the providers actually present in the
+    // loaded chats. Always offers "All"; only shows ChatGPT/Claude when such
+    // data exists, so a pure-Gemini vault isn't hidden behind a fixed list.
+    function renderSourceFilter() {
+      const sel = document.getElementById('source-filter');
+      const present = [...new Set(allChats.map(c => c.source || 'gemini'))].sort();
+      sel.innerHTML = '';
+      const allOpt = document.createElement('option');
+      allOpt.value = 'all';
+      allOpt.textContent = t('all_sources');
+      sel.appendChild(allOpt);
+      for (const s of present) {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = sourceLabel(s);
+        sel.appendChild(opt);
+      }
+      // Hide the control entirely when there's only one provider — nothing to filter.
+      sel.style.display = present.length > 1 ? '' : 'none';
+      if (!present.includes(selectedSource)) selectedSource = 'all';
+      sel.value = selectedSource;
+    }
 
     function chatYear(c) {
       const d = c.updated_time || c.created_time || '';
@@ -699,6 +750,9 @@
       if (onlyWithCanvas) {
         filtered = filtered.filter(c => (c.canvas_count || 0) > 0);
       }
+      if (selectedSource !== 'all') {
+        filtered = filtered.filter(c => (c.source || 'gemini') === selectedSource);
+      }
       sortChats(filtered);
 
       for (const c of filtered) {
@@ -706,8 +760,10 @@
         div.className = 'chat-item' + (c.id === currentConvId ? ' active' : '');
         const canvasBadge = c.canvas_count > 0 ? ` · 📄${c.canvas_count}` : '';
         const msgWord = lang === 'en' ? 'msgs' : 'сообщ.';
+        // Show a provider badge only in the "All sources" view, where chats are mixed.
+        const srcBadge = selectedSource === 'all' ? sourceBadgeHtml(c.source) : '';
         div.innerHTML = `
-          <div class="chat-item-title">${escapeHtml(c.title || t('untitled'))}</div>
+          <div class="chat-item-title">${srcBadge}${escapeHtml(c.title || t('untitled'))}</div>
           <div class="chat-item-meta">${c.message_count} ${msgWord}${canvasBadge} · ${formatDate(c.updated_time || c.created_time)}</div>
         `;
         div.addEventListener('click', () => openConversation(c.id));

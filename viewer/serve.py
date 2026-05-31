@@ -306,7 +306,7 @@ class VaultHandler(SimpleHTTPRequestHandler):
             # Search via FTS5
             rows = conn.execute("""
                 SELECT c.id, c.title, c.created_time, c.updated_time,
-                       c.message_count, c.canvas_count, a.email
+                       c.message_count, c.canvas_count, c.source, a.email
                 FROM conversations c
                 JOIN accounts a ON c.account_id = a.id
                 WHERE c.id IN (
@@ -319,7 +319,7 @@ class VaultHandler(SimpleHTTPRequestHandler):
         elif account_id:
             rows = conn.execute("""
                 SELECT c.id, c.title, c.created_time, c.updated_time,
-                       c.message_count, c.canvas_count, a.email
+                       c.message_count, c.canvas_count, c.source, a.email
                 FROM conversations c
                 JOIN accounts a ON c.account_id = a.id
                 WHERE c.account_id = ?
@@ -329,7 +329,7 @@ class VaultHandler(SimpleHTTPRequestHandler):
         else:
             rows = conn.execute("""
                 SELECT c.id, c.title, c.created_time, c.updated_time,
-                       c.message_count, c.canvas_count, a.email
+                       c.message_count, c.canvas_count, c.source, a.email
                 FROM conversations c
                 JOIN accounts a ON c.account_id = a.id
                 ORDER BY c.updated_time DESC
