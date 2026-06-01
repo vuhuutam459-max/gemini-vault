@@ -48,6 +48,7 @@ The core needs no dependencies — just the Python 3.10+ standard library.
 - ♻️ **Incremental**: SHA256 deduplication — only new/changed chats are pulled
 - 🌐 **Bilingual UI** (English ⇄ Russian) with a one-click toggle
 - 🧩 **Multi-source import**: also reads **ChatGPT** and **Claude** exports — one searchable vault for all your AI chats
+- 🧠 **Smart Librarian** (optional, **opt-in**): AI auto-tagging, per-chat summaries and an "ask the archive" search, powered by a self-hosted [FreeLLMAPI](https://github.com/tashfeenahmed/freellmapi) gateway
 
 ### With your own data
 
@@ -102,6 +103,75 @@ export only adds what changed (same SHA256 deduplication as Gemini).
 > (regenerated/branch variants are skipped), and full-text search works across
 > all sources automatically.
 
+## 🧠 Smart Librarian (optional, opt-in)
+
+The **Smart Librarian** can auto-**tag** your chats, write a short **summary** for
+each one, and answer plain-language questions about your whole archive
+(**"Ask the archive"**). It is powered by **[FreeLLMAPI](https://github.com/tashfeenahmed/freellmapi)** —
+a self-hosted gateway that aggregates free-tier LLM providers behind one
+OpenAI-compatible endpoint (~1.7B tokens/month across providers).
+
+> ⚠️ **PRIVACY — READ THIS FIRST. The Smart Librarian is OPT-IN and DISABLED by
+> default. The rest of Gemini Vault runs 100% on your machine — but when you enable
+> the Librarian, the content of your chats is sent to your local FreeLLMAPI gateway
+> and on to the external AI providers you configured there (Google, Groq, Mistral,
+> …) for processing. Only turn it on for an archive you are comfortable sending to
+> those providers. With no key configured, nothing is ever sent.**
+
+Gemini Vault's core stays **zero-dependency**: the client is plain `urllib`, so you
+do **not** need the `openai` package.
+
+### 1. Run the FreeLLMAPI gateway locally
+
+FreeLLMAPI is a separate project you run yourself (it is **not** bundled here):
+
+1. Clone and start it (Docker Compose or Node.js) — follow its README:
+   <https://github.com/tashfeenahmed/freellmapi>
+2. Open its dashboard at <http://localhost:3001> and add your free provider API
+   keys on the **Keys** page.
+3. Copy the unified key from the dashboard header — it looks like `freellmapi-…`.
+
+### 2. Give the key to Gemini Vault
+
+Either set environment variables:
+
+```bash
+# Windows (PowerShell)
+$env:FREELLMAPI_KEY = "freellmapi-your-unified-key"
+$env:FREELLMAPI_BASE_URL = "http://localhost:3001/v1"   # optional (this is the default)
+$env:FREELLMAPI_MODEL = "auto"                          # optional
+
+# macOS / Linux
+export FREELLMAPI_KEY="freellmapi-your-unified-key"
+```
+
+…**or** create **`librarian_config.json`** in the project root (it is gitignored,
+so the key never lands in the repo):
+
+```json
+{
+  "base_url": "http://localhost:3001/v1",
+  "api_key": "freellmapi-your-unified-key",
+  "model": "auto"
+}
+```
+
+### 3. Run the Librarian
+
+```bash
+python processor/librarian.py                  # tag + summarize everything new
+python processor/librarian.py --tag            # tags only
+python processor/librarian.py --summarize --limit 50
+```
+
+…or trigger it from the viewer (background job with live progress in
+`.librarian_log.txt`). Processing is **idempotent** — already-tagged/summarized
+chats are skipped, so it never re-spends tokens, and it is safe to stop and resume.
+
+Afterwards the viewer shows **tag chips** and an **AI summary** on each chat, a
+**tag filter** in the sidebar, and the **Ask the archive** bar (full-text search
+finds the relevant chats, then the model answers with citations).
+
 ## Commands
 
 ```bash
@@ -110,6 +180,10 @@ python processor/import_takeout.py takeout.zip          # from a Takeout ZIP
 python processor/parse_and_index.py export.json         # Gemini JSON export
 python processor/parse_and_index.py conversations.json  # ChatGPT / Claude export (auto-detected)
 python processor/parse_and_index.py --stats             # database statistics
+
+# Smart Librarian (opt-in; needs a FreeLLMAPI key — see the section above)
+python processor/librarian.py                   # auto-tag + summarize new chats
+python processor/librarian.py --tag             # tags only
 
 # Viewer
 python viewer/serve.py                  # port 8642
@@ -144,7 +218,9 @@ Gemini_Vault/
 │   ├── import_takeout.py    Takeout ZIP -> SQLite
 │   ├── export_obsidian.py   SQLite -> Obsidian Vault
 │   ├── parsers.py           Gemini JSON/HTML -> Markdown
-│   └── scrape_gemini_url.py Scraper (Playwright)
+│   ├── scrape_gemini_url.py Scraper (Playwright)
+│   ├── llm_client.py        FreeLLMAPI client (stdlib urllib; opt-in)
+│   └── librarian.py         Smart Librarian: auto-tag / summarize
 ├── viewer/
 │   ├── index.html           SPA viewer
 │   ├── serve.py             HTTP server + JSON API
@@ -163,6 +239,7 @@ Gemini_Vault/
 ## Privacy & limitations
 
 - Everything runs locally; the database, logs and personal dumps are excluded via `.gitignore`.
+- The **Smart Librarian is opt-in and off by default.** Enabling it (configuring a FreeLLMAPI key) sends chat content to your local gateway and the external AI providers behind it. With no key configured, nothing leaves your machine.
 - The viewer is designed for **trusted, self-owned data**: rendered Markdown is
   not sanitized (by original design). Do not open someone else's archives with it.
 - `migrate_uploader.py` violates Google's ToS and is kept only as a deprecated reference.
@@ -186,6 +263,14 @@ responsibility**:
 
 In short: the tool does its job — but the data, and what you do with it, are on you.
 See the full [DISCLAIMER](DISCLAIMER.md).
+
+## Credits
+
+- **AI engine (optional):** the Smart Librarian is powered by
+  **[FreeLLMAPI](https://github.com/tashfeenahmed/freellmapi)** by Tashfeen Ahmed,
+  licensed **MIT** (© 2026 Tashfeen Ahmed). Gemini Vault does **not** bundle or
+  redistribute FreeLLMAPI — you run your own local instance and Gemini Vault only
+  talks to its OpenAI-compatible HTTP endpoint.
 
 ## License
 
