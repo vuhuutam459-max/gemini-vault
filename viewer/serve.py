@@ -39,6 +39,11 @@ _scraper_lock = threading.Lock()
 _scraper_proc = None
 _scraper_log_path = str(VIEWER_DIR.parent / ".scraper_log.txt")
 
+# Global Smart Librarian state (mirrors the scraper pattern above)
+_librarian_lock = threading.Lock()
+_librarian_proc = None
+_librarian_log_path = str(VIEWER_DIR.parent / ".librarian_log.txt")
+
 
 def get_db() -> sqlite3.Connection:
     conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
@@ -72,6 +77,10 @@ class VaultHandler(SimpleHTTPRequestHandler):
             self._handle_scrape_all()
         elif parsed.path == "/api/scrape-stop":
             self._handle_scrape_stop()
+        elif parsed.path == "/api/librarian/run":
+            self._handle_librarian_run()
+        elif parsed.path == "/api/librarian/stop":
+            self._handle_librarian_stop()
         else:
             self._json_response(404, {"error": "Not found"})
 
@@ -136,6 +145,64 @@ class VaultHandler(SimpleHTTPRequestHandler):
             else:
                 self._json_response(200, {"status": "not_running"})
 
+    # ── Smart Librarian (auto-tag / summarize) — same subprocess pattern ──
+
+    def _handle_librarian_run(self):
+        global _librarian_proc
+        with _librarian_lock:
+            if _librarian_proc and _librarian_proc.poll() is None:
+                self._json_response(409, {"error": "Librarian already running"})
+                return
+
+            length = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(length)) if length else {}
+            # Default to doing both unless the caller narrows the scope.
+            do_tag = bool(body.get("tag", True))
+            do_summarize = bool(body.get("summarize", True))
+            if not do_tag and not do_summarize:
+                self._json_response(400, {"error": "Enable at least one of tag/summarize"})
+                return
+
+            with open(_librarian_log_path, "w", encoding="utf-8") as f:
+                f.write("[STATUS] Starting Smart Librarian...\n")
+
+            script = str(VIEWER_DIR.parent / "processor" / "librarian.py")
+            cmd = [sys.executable, script, "--log", _librarian_log_path]
+            if do_tag:
+                cmd.append("--tag")
+            if do_summarize:
+                cmd.append("--summarize")
+            _librarian_proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                env={**os.environ, "PYTHONUTF8": "1"},
+            )
+
+        self._json_response(200, {"status": "started", "pid": _librarian_proc.pid,
+                                  "tag": do_tag, "summarize": do_summarize})
+
+    def _handle_librarian_stop(self):
+        global _librarian_proc
+        with _librarian_lock:
+            if _librarian_proc and _librarian_proc.poll() is None:
+                _librarian_proc.terminate()
+                self._json_response(200, {"status": "stopped"})
+            else:
+                self._json_response(200, {"status": "not_running"})
+
+    def _api_librarian_status(self):
+        with _librarian_lock:
+            running = _librarian_proc is not None and _librarian_proc.poll() is None
+        log_text = ""
+        try:
+            with open(_librarian_log_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            log_text = "".join(lines[-200:])  # last lines only
+        except FileNotFoundError:
+            pass
+        return {"running": running, "log": log_text}
+
     def _handle_api(self, path: str, params: dict):
         try:
             conn = get_db()
@@ -157,6 +224,8 @@ class VaultHandler(SimpleHTTPRequestHandler):
             }
         if path == "/api/scrape-status":
             return self._api_scrape_status()
+        if path == "/api/librarian/status":
+            return self._api_librarian_status()
         if path == "/api/stats":
             return self._api_stats(conn)
         if path == "/api/dashboard":
