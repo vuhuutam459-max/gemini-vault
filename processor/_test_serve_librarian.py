@@ -56,6 +56,19 @@ def main():
         d = json.loads(_post(base, "/api/librarian/stop", {}).read())
         assert d["status"] == "not_running", d
         print("  OK  stop when idle -> not_running")
+
+        # ask: empty question -> 400
+        try:
+            _post(base, "/api/ask", {"question": "   "})
+            raise AssertionError("expected HTTP 400")
+        except urllib.error.HTTPError as e:
+            assert e.code == 400, e.code
+        print("  OK  ask rejects empty question (400)")
+
+        # ask: with no key configured -> enabled:false, graceful (no crash on bare DB)
+        d = json.loads(_post(base, "/api/ask", {"question": "what did we discuss?"}).read())
+        assert d["enabled"] is False and d["answer"] is None, d
+        print("  OK  ask degrades gracefully when LLM disabled")
     finally:
         srv.shutdown()
         tmp.cleanup()

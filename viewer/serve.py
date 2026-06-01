@@ -44,6 +44,10 @@ _librarian_lock = threading.Lock()
 _librarian_proc = None
 _librarian_log_path = str(VIEWER_DIR.parent / ".librarian_log.txt")
 
+# Smart Librarian LLM client (stdlib-only; safe to import even without a key).
+sys.path.insert(0, str(VIEWER_DIR.parent / "processor"))
+from llm_client import LLMClient, LLMError  # noqa: E402
+
 
 def get_db() -> sqlite3.Connection:
     conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
@@ -81,6 +85,8 @@ class VaultHandler(SimpleHTTPRequestHandler):
             self._handle_librarian_run()
         elif parsed.path == "/api/librarian/stop":
             self._handle_librarian_stop()
+        elif parsed.path == "/api/ask":
+            self._handle_ask()
         else:
             self._json_response(404, {"error": "Not found"})
 
@@ -202,6 +208,73 @@ class VaultHandler(SimpleHTTPRequestHandler):
         except FileNotFoundError:
             pass
         return {"running": running, "log": log_text}
+
+    # ── Smart search: "ask the archive" (RAG-lite over FTS) ──
+
+    @staticmethod
+    def _fts_query(text: str) -> str:
+        """Build a safe FTS5 MATCH query: OR of quoted word tokens."""
+        import re
+        terms = re.findall(r"\w+", text, flags=re.UNICODE)
+        return " OR ".join(f'"{t}"' for t in terms)
+
+    def _handle_ask(self):
+        length = int(self.headers.get("Content-Length", 0))
+        body = json.loads(self.rfile.read(length)) if length else {}
+        question = (body.get("question") or "").strip()
+        if not question:
+            self._json_response(400, {"error": "Empty question"})
+            return
+
+        # 1) Retrieve candidate chats via FTS (phase-1 RAG-lite).
+        sources, seen = [], set()
+        fts_q = self._fts_query(question)
+        if fts_q:
+            conn = get_db()
+            try:
+                rows = conn.execute("""
+                    SELECT m.conversation_id AS id, c.title AS title,
+                           snippet(messages_fts, 0, '[', ']', '…', 18) AS snippet
+                    FROM messages_fts
+                    JOIN messages m ON messages_fts.rowid = m.id
+                    JOIN conversations c ON m.conversation_id = c.id
+                    WHERE messages_fts MATCH ?
+                    ORDER BY rank LIMIT 12
+                """, (fts_q,)).fetchall()
+            except sqlite3.OperationalError:
+                rows = []
+            finally:
+                conn.close()
+            for r in rows:
+                if r["id"] in seen:
+                    continue
+                seen.add(r["id"])
+                sources.append({"id": r["id"], "title": r["title"], "snippet": r["snippet"]})
+                if len(sources) >= 6:
+                    break
+
+        # 2) Ask the LLM to answer over the excerpts — opt-in, degrades gracefully.
+        client = LLMClient()
+        if not client.enabled:
+            self._json_response(200, {"enabled": False, "answer": None, "sources": sources})
+            return
+        if not sources:
+            self._json_response(200, {"enabled": True, "answer": None, "sources": []})
+            return
+
+        context = "\n\n".join(
+            f"[{i + 1}] {s['title']}: {s['snippet']}" for i, s in enumerate(sources))
+        try:
+            answer = client.complete(
+                f"Question: {question}\n\nArchive excerpts:\n{context}\n\n"
+                "Answer the question using ONLY these excerpts and cite sources as [n]. "
+                "If the excerpts do not contain the answer, say so plainly.",
+                system="You are a librarian answering questions about the user's own chat archive.",
+            )
+            self._json_response(200, {"enabled": True, "answer": answer, "sources": sources})
+        except LLMError as exc:
+            self._json_response(200, {"enabled": True, "answer": None,
+                                      "error": str(exc), "sources": sources})
 
     def _handle_api(self, path: str, params: dict):
         try:
@@ -385,7 +458,7 @@ class VaultHandler(SimpleHTTPRequestHandler):
             # Search via FTS5
             rows = conn.execute("""
                 SELECT c.id, c.title, c.created_time, c.updated_time,
-                       c.message_count, c.canvas_count, c.source, a.email
+                       c.message_count, c.canvas_count, c.source, c.summary, a.email
                 FROM conversations c
                 JOIN accounts a ON c.account_id = a.id
                 WHERE c.id IN (
@@ -398,7 +471,7 @@ class VaultHandler(SimpleHTTPRequestHandler):
         elif account_id:
             rows = conn.execute("""
                 SELECT c.id, c.title, c.created_time, c.updated_time,
-                       c.message_count, c.canvas_count, c.source, a.email
+                       c.message_count, c.canvas_count, c.source, c.summary, a.email
                 FROM conversations c
                 JOIN accounts a ON c.account_id = a.id
                 WHERE c.account_id = ?
@@ -408,14 +481,31 @@ class VaultHandler(SimpleHTTPRequestHandler):
         else:
             rows = conn.execute("""
                 SELECT c.id, c.title, c.created_time, c.updated_time,
-                       c.message_count, c.canvas_count, c.source, a.email
+                       c.message_count, c.canvas_count, c.source, c.summary, a.email
                 FROM conversations c
                 JOIN accounts a ON c.account_id = a.id
                 ORDER BY c.updated_time DESC
                 LIMIT ? OFFSET ?
             """, (limit, offset)).fetchall()
 
-        return [dict(r) for r in rows]
+        result = [dict(r) for r in rows]
+        self._attach_tags(conn, result)
+        return result
+
+    def _attach_tags(self, conn, rows):
+        """Attach a `tags` list (sorted) to each conversation dict in `rows`."""
+        if not rows:
+            return
+        ids = [r["id"] for r in rows]
+        qmarks = ",".join("?" * len(ids))
+        tagmap: dict = {}
+        for r in conn.execute(
+            f"SELECT ct.conversation_id AS cid, t.name AS name "
+            f"FROM conversation_tags ct JOIN tags t ON t.id = ct.tag_id "
+            f"WHERE ct.conversation_id IN ({qmarks}) ORDER BY t.name", ids):
+            tagmap.setdefault(r["cid"], []).append(r["name"])
+        for r in rows:
+            r["tags"] = tagmap.get(r["id"], [])
 
     def _api_conversation(self, conn, conv_id: str):
         conv = conn.execute("""
@@ -437,8 +527,13 @@ class VaultHandler(SimpleHTTPRequestHandler):
             FROM canvas_artifacts WHERE conversation_id = ?
         """, (conv_id,)).fetchall()
 
+        conv_d = dict(conv)  # includes summary/summary_model/... via c.*
+        conv_d["tags"] = [r["name"] for r in conn.execute(
+            "SELECT t.name FROM conversation_tags ct JOIN tags t ON t.id = ct.tag_id "
+            "WHERE ct.conversation_id = ? ORDER BY t.name", (conv_id,))]
+
         return {
-            "conversation": dict(conv),
+            "conversation": conv_d,
             "messages": [dict(m) for m in messages],
             "canvas_artifacts": [dict(c) for c in canvas],
         }
