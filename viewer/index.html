@@ -17,6 +17,16 @@
   <!-- marked.js for Markdown -->
   <script src="lib/marked.min.js" onerror="this.src='https://cdn.jsdelivr.net/npm/marked/marked.min.js'"></script>
 
+  <!-- Cyberpunk fonts for the neon theme (Orbitron display · Space Grotesk UI · JetBrains Mono data).
+       Online-only eye candy: when offline the CSS falls back to system mono/sans, so nothing breaks. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@600;700;900&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+
+  <!-- Apply saved theme before first paint to avoid a flash -->
+  <script>try { var _t = localStorage.getItem('gv_theme'); if (_t) document.documentElement.setAttribute('data-theme', _t); } catch (e) {}</script>
+
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; background: #0f0f17; color: #e0e0ef; font-family: 'Segoe UI', system-ui, sans-serif; }
@@ -76,6 +86,186 @@
       border-radius: 8px; color: #7aa2f7; font-size: 12px; cursor: pointer; font-weight: 600;
     }
     #lang-toggle:hover { border-color: #7aa2f7; }
+
+    #theme-toggle {
+      padding: 6px 10px; background: #1a1a2e; border: 1px solid #3b3b52;
+      border-radius: 8px; color: #bb9af7; font-size: 12px; font-weight: 600;
+      letter-spacing: 0.04em; cursor: pointer;
+    }
+    #theme-toggle:hover { border-color: #bb9af7; }
+
+    /* ═══════════════════════════════════════════════════════════════
+       NEON THEME — techno-noir / cyberpunk "hacker mode"
+       Activated via <html data-theme="neon">. Purely additive: it
+       overrides the default palette, never replaces it.
+       ═══════════════════════════════════════════════════════════════ */
+    html[data-theme="neon"] {
+      --neon-cyan: #00eaff;
+      --neon-magenta: #ff1f8f;
+      --neon-green: #00ff9c;
+      --neon-border: #16263f;
+      --neon-text: #d7e6ff;
+      --neon-dim: #8298ba;            /* lifted from #5d7290 → ~6:1 contrast for small labels (WCAG AA) */
+      /* cyberpunk type stack — all with system fallbacks so offline still renders */
+      --neon-display: 'Orbitron', 'Segoe UI', system-ui, sans-serif;       /* brand / HUD headings */
+      --neon-ui: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;       /* titles, body, buttons */
+      --neon-mono: 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace; /* data, meta, code */
+    }
+    html[data-theme="neon"] body {
+      color: var(--neon-text);
+      font-family: var(--neon-ui);
+      background:
+        radial-gradient(1200px 600px at 82% -12%, rgba(255,31,143,0.12), transparent 60%),
+        radial-gradient(1000px 700px at -5% 110%, rgba(0,234,255,0.12), transparent 55%),
+        #05060a;
+    }
+    /* faint scanning grid for atmosphere */
+    html[data-theme="neon"] #messages-container {
+      background-image:
+        linear-gradient(rgba(0,234,255,0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,234,255,0.045) 1px, transparent 1px);
+      background-size: 42px 42px;
+    }
+
+    /* ── neon typography: Orbitron (display) · Space Grotesk (UI) · JetBrains Mono (data) ── */
+    html[data-theme="neon"] #sidebar-header h1 {
+      font-family: var(--neon-display);
+      font-weight: 900; text-transform: uppercase; letter-spacing: 0.14em; font-size: 16px;
+    }
+    html[data-theme="neon"] .dash-section h3 {
+      font-family: var(--neon-display);
+      font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+    }
+    html[data-theme="neon"] #conv-title,
+    html[data-theme="neon"] .chat-item-title {
+      font-family: var(--neon-ui); font-weight: 600; letter-spacing: 0.01em;
+    }
+    /* the hacker/data layer — everything numeric or technical is monospaced */
+    html[data-theme="neon"] .chat-item-meta,
+    html[data-theme="neon"] .dash-card .num,
+    html[data-theme="neon"] .dash-card .label,
+    html[data-theme="neon"] .message-role,
+    html[data-theme="neon"] #account-select,
+    html[data-theme="neon"] #search-global,
+    html[data-theme="neon"] #chat-filter {
+      font-family: var(--neon-mono);
+    }
+    html[data-theme="neon"] .dash-card .num {
+      font-weight: 700; font-variant-numeric: tabular-nums;  /* tabular figures: stats don't jitter */
+    }
+    html[data-theme="neon"] .dash-card .label,
+    html[data-theme="neon"] .chat-item-meta {
+      text-transform: uppercase; letter-spacing: 0.08em; font-size: 10.5px;
+    }
+    html[data-theme="neon"] .message-content pre,
+    html[data-theme="neon"] .message-content code {
+      font-family: var(--neon-mono);
+    }
+    html[data-theme="neon"] #lang-toggle,
+    html[data-theme="neon"] #dash-btn,
+    html[data-theme="neon"] #export-btn,
+    html[data-theme="neon"] #theme-toggle {
+      font-family: var(--neon-mono); text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    html[data-theme="neon"] #sidebar { background: rgba(7,9,14,0.92); border-right: 1px solid var(--neon-border); }
+    html[data-theme="neon"] #sidebar-header { border-bottom: 1px solid var(--neon-border); }
+    html[data-theme="neon"] #sidebar-header h1 {
+      color: var(--neon-cyan); letter-spacing: 0.06em;
+      text-shadow: 0 0 10px rgba(0,234,255,0.75), 0 0 24px rgba(0,234,255,0.35);
+    }
+    html[data-theme="neon"] #main,
+    html[data-theme="neon"] #main-header { background: transparent; border-color: var(--neon-border); }
+    html[data-theme="neon"] #conv-title { color: var(--neon-text); text-shadow: 0 0 7px rgba(0,234,255,0.35); }
+
+    /* inputs */
+    html[data-theme="neon"] #search-global,
+    html[data-theme="neon"] #account-select,
+    html[data-theme="neon"] #chat-filter {
+      background: rgba(10,18,30,0.82); color: var(--neon-text); border: 1px solid var(--neon-border);
+    }
+    html[data-theme="neon"] #search-global:focus,
+    html[data-theme="neon"] #account-select:focus {
+      border-color: var(--neon-cyan); box-shadow: 0 0 11px rgba(0,234,255,0.45); outline: none;
+    }
+    html[data-theme="neon"] #chat-filter::placeholder,
+    html[data-theme="neon"] #search-global::placeholder { color: var(--neon-dim); }
+
+    /* chat list */
+    html[data-theme="neon"] .chat-item { border-bottom: 1px solid rgba(22,38,63,0.6); }
+    html[data-theme="neon"] .chat-item:hover { background: rgba(0,234,255,0.06); }
+    html[data-theme="neon"] .chat-item.active {
+      background: rgba(0,234,255,0.10); border-left: 3px solid var(--neon-cyan);
+      box-shadow: inset 0 0 16px rgba(0,234,255,0.10);
+    }
+    html[data-theme="neon"] .chat-item-title { color: var(--neon-text); }
+    html[data-theme="neon"] .chat-item-meta { color: var(--neon-dim); }
+
+    /* header buttons (inline styles need !important to override) */
+    html[data-theme="neon"] #lang-toggle,
+    html[data-theme="neon"] #theme-toggle,
+    html[data-theme="neon"] #dash-btn,
+    html[data-theme="neon"] #export-btn {
+      background: rgba(10,18,30,0.85) !important;
+      border: 1px solid var(--neon-cyan) !important;
+      color: var(--neon-cyan) !important;
+      box-shadow: 0 0 8px rgba(0,234,255,0.30);
+      text-shadow: 0 0 6px rgba(0,234,255,0.5);
+    }
+    html[data-theme="neon"] #export-btn {
+      border-color: var(--neon-magenta) !important; color: var(--neon-magenta) !important;
+      box-shadow: 0 0 8px rgba(255,31,143,0.30); text-shadow: 0 0 6px rgba(255,31,143,0.5);
+    }
+    html[data-theme="neon"] #theme-toggle {
+      border-color: var(--neon-green) !important; color: var(--neon-green) !important;
+      box-shadow: 0 0 9px rgba(0,255,156,0.45); text-shadow: 0 0 7px rgba(0,255,156,0.7);
+    }
+
+    /* messages — glowing borders */
+    html[data-theme="neon"] .message.user {
+      background: rgba(10,18,30,0.66); border: 1px solid var(--neon-cyan);
+      border-left: 3px solid var(--neon-cyan);
+      box-shadow: 0 0 13px rgba(0,234,255,0.25), inset 0 0 20px rgba(0,234,255,0.05);
+    }
+    html[data-theme="neon"] .message.model {
+      background: rgba(10,18,30,0.66); border: 1px solid var(--neon-magenta);
+      border-left: 3px solid var(--neon-magenta);
+      box-shadow: 0 0 13px rgba(255,31,143,0.22), inset 0 0 20px rgba(255,31,143,0.05);
+    }
+    html[data-theme="neon"] .message.user .message-role { color: var(--neon-cyan); text-shadow: 0 0 8px rgba(0,234,255,0.8); }
+    html[data-theme="neon"] .message.model .message-role { color: var(--neon-magenta); text-shadow: 0 0 8px rgba(255,31,143,0.8); }
+    html[data-theme="neon"] .message-content pre {
+      background: rgba(5,8,14,0.9); border: 1px solid var(--neon-border);
+      box-shadow: inset 0 0 12px rgba(0,234,255,0.06);
+    }
+    html[data-theme="neon"] .message-content a { color: var(--neon-cyan); text-shadow: 0 0 6px rgba(0,234,255,0.5); }
+    html[data-theme="neon"] .message-content th { background: rgba(0,234,255,0.08); color: var(--neon-cyan); }
+    html[data-theme="neon"] .message-content mark { background: var(--neon-green); color: #05060a; }
+
+    /* canvas button */
+    html[data-theme="neon"] .canvas-btn {
+      background: rgba(10,18,30,0.85); border: 1px solid var(--neon-magenta); color: var(--neon-magenta);
+      box-shadow: 0 0 8px rgba(255,31,143,0.30);
+    }
+    html[data-theme="neon"] .canvas-btn:hover { box-shadow: 0 0 14px rgba(255,31,143,0.55); }
+
+    /* dashboard — glowing cards + neon bars */
+    html[data-theme="neon"] .dash-card {
+      background: rgba(10,18,30,0.6); border: 1px solid var(--neon-cyan);
+      box-shadow: 0 0 15px rgba(0,234,255,0.25), inset 0 0 22px rgba(0,234,255,0.06);
+    }
+    html[data-theme="neon"] .dash-card .num { color: var(--neon-green); text-shadow: 0 0 11px rgba(0,255,156,0.7); }
+    html[data-theme="neon"] .dash-card .label { color: var(--neon-dim); }
+    html[data-theme="neon"] .dash-section h3 { color: var(--neon-cyan); text-shadow: 0 0 8px rgba(0,234,255,0.6); }
+    html[data-theme="neon"] .bar-fill {
+      background: linear-gradient(90deg, var(--neon-cyan), var(--neon-magenta));
+      box-shadow: 0 0 10px rgba(0,234,255,0.6);
+    }
+    html[data-theme="neon"] .bar-track { background: rgba(0,234,255,0.07); }
+
+    /* neon scrollbars */
+    html[data-theme="neon"] ::-webkit-scrollbar { width: 10px; height: 10px; }
+    html[data-theme="neon"] ::-webkit-scrollbar-thumb { background: rgba(0,234,255,0.30); border-radius: 6px; }
+    html[data-theme="neon"] ::-webkit-scrollbar-thumb:hover { background: rgba(0,234,255,0.55); }
 
     #messages-container {
       flex: 1; overflow-y: auto; padding: 24px;
@@ -287,6 +477,7 @@
     <div id="main-header">
       <div id="conv-title">Gemini Vault</div>
       <button id="lang-toggle" onclick="toggleLang()">RU</button>
+      <button id="theme-toggle" onclick="toggleTheme()" data-i18n-title="theme_title" title="Neon mode">NEON</button>
       <button id="dash-btn" onclick="openDashboard()" data-i18n-title="dashboard_title"
         style="padding:6px 12px;background:#24283b;border:1px solid #3b3b52;border-radius:8px;color:#bb9af7;font-size:12px;cursor:pointer"
         data-i18n="dashboard_btn">📊 Dashboard</button>
@@ -414,6 +605,7 @@
         sort_msgs: 'Most messages', sort_title_az: 'Title (A–Z)',
         with_canvas: '📄 with Canvas', load_more: 'More',
         dashboard_btn: '📊 Dashboard', dashboard_title: 'Stats and charts',
+        theme_title: 'Toggle neon / hacker mode',
         export_btn: '⤓ Export ▾', exp_current: 'Current chat',
         exp_md: '📄 Markdown (.md)', exp_html: '🌐 HTML (standalone)', exp_print: '🖨 Print / PDF',
         exp_vault: 'Whole vault', exp_big_md: '📄 Single big .md', exp_zip: '🗜 ZIP (per file)',
@@ -471,6 +663,7 @@
         sort_msgs: 'Больше сообщений', sort_title_az: 'По названию (А–Я)',
         with_canvas: '📄 с Canvas', load_more: 'Ещё',
         dashboard_btn: '📊 Дашборд', dashboard_title: 'Статистика и графики',
+        theme_title: 'Неоновый / хакерский режим',
         export_btn: '⤓ Экспорт ▾', exp_current: 'Текущий чат',
         exp_md: '📄 Markdown (.md)', exp_html: '🌐 HTML (автономный)', exp_print: '🖨 Печать / PDF',
         exp_vault: 'Весь vault', exp_big_md: '📄 Один большой .md', exp_zip: '🗜 ZIP (по файлам)',
@@ -524,6 +717,7 @@
     };
 
     let lang = localStorage.getItem('gv_lang') || 'en';
+    let theme = localStorage.getItem('gv_theme') || '';
 
     function t(key, ...args) {
       const v = (I18N[lang] && I18N[lang][key] !== undefined) ? I18N[lang][key] : (I18N.en[key]);
@@ -557,6 +751,19 @@
       refreshStatsLine();
     }
 
+    function applyTheme() {
+      if (theme === 'neon') document.documentElement.setAttribute('data-theme', 'neon');
+      else document.documentElement.removeAttribute('data-theme');
+      const btn = document.getElementById('theme-toggle');
+      if (btn) btn.textContent = theme === 'neon' ? 'LIGHT' : 'NEON';
+    }
+
+    function toggleTheme() {
+      theme = (theme === 'neon') ? '' : 'neon';
+      localStorage.setItem('gv_theme', theme);
+      applyTheme();
+    }
+
     const API = '/api';
     let currentConvId = null;
     let allChats = [];
@@ -571,6 +778,7 @@
 
     async function init() {
       applyStaticI18n();
+      applyTheme();
       try {
         const stats = await api('/stats');
         lastStats = stats;
