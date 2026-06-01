@@ -46,7 +46,7 @@ librarian_config.json  ← gitignored: base_url + ключ (НЕ коммити�
 
 ## 2. LLM-клиент — `processor/llm_client.py`  *(архитектурное решение)*
 
-**Решение:** написать тонкую обёртку на stdlib `urllib.request`, а не подключать пакет `openai`.
+**Решение (принято):** ✅ **Вариант A — тонкая обёртка на stdlib `urllib.request`**, без пакета `openai`.
 
 | Вариант | За | Против |
 |---|---|---|
