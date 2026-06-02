@@ -1048,8 +1048,6 @@
         box.appendChild(btn);
       }
     }
-    let selectedTags = new Set();   // AND-filter over auto-generated tags
-
     // Provider id (stored in DB) -> human label. Unknown ids are Title-cased.
     const SOURCE_LABELS = { gemini: 'Gemini', chatgpt: 'ChatGPT', claude: 'Claude' };
     function sourceLabel(s) {

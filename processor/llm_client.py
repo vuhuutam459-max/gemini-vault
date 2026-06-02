@@ -67,7 +67,7 @@ class LLMClient:
         api_key: str | None = None,
         model: str | None = None,
         *,
-        timeout: float = 60.0,
+        timeout: float = 180.0,
     ):
         cfg = _load_config()
         self.base_url = (base_url or cfg.get("base_url") or DEFAULT_BASE_URL).rstrip("/")
@@ -145,7 +145,10 @@ class LLMClient:
                 last_exc = exc
                 if exc.code not in _RETRY_STATUSES or attempt == max_retries:
                     raise LLMError(f"HTTP {exc.code} from gateway: {exc}") from exc
-            except urllib.error.URLError as exc:
+            except (urllib.error.URLError, TimeoutError) as exc:
+                # TimeoutError (== socket.timeout in 3.10+) is an OSError, not a
+                # URLError, so it must be caught explicitly or a slow generation
+                # would crash the whole run instead of being retried.
                 last_exc = exc
                 if attempt == max_retries:
                     raise LLMError(f"cannot reach gateway at {self.base_url}: {exc}") from exc
