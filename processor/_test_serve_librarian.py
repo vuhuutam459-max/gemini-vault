@@ -34,6 +34,14 @@ def main():
     serve.DB_PATH = Path(tmp.name) / "t.db"               # don't touch real data
     serve._librarian_log_path = str(Path(tmp.name) / ".librarian_log.txt")
 
+    # Hermetic: make the LLM client see no key (ignore any real librarian_config.json),
+    # so /api/ask exercises the disabled/degraded path deterministically.
+    import os
+    import llm_client as LC
+    LC.CONFIG_PATH = Path(tmp.name) / "__no_config__.json"
+    for _v in ("FREELLMAPI_BASE_URL", "FREELLMAPI_KEY", "FREELLMAPI_MODEL"):
+        os.environ.pop(_v, None)
+
     srv = ThreadingHTTPServer(("127.0.0.1", 0), serve.VaultHandler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     base = f"http://127.0.0.1:{srv.server_address[1]}"

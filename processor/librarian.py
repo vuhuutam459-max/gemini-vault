@@ -56,6 +56,18 @@ SUMMARY_SYSTEM = (
     "markdown, no bullet points."
 )
 
+# Combined prompt: tags AND summary in a single request (halves the number of
+# LLM calls for a full run, which matters a lot on rate-limited or local models).
+TAG_AND_SUMMARY_SYSTEM = (
+    "You are a librarian that files chat transcripts. For the given chat produce "
+    "BOTH topical tags and a short summary, and reply with ONLY a JSON object of "
+    'the form {"tags": ["..."], "summary": "..."}. '
+    'The "tags" array holds 3 to 6 short tags (one or two words each), lowercase, '
+    'written in the same language as the chat. The "summary" is 2 to 4 sentences '
+    "in the same language as the chat, capturing the topic and outcome — no "
+    "markdown, no bullet points. Output nothing outside the JSON object."
+)
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -126,6 +138,35 @@ def summarize_conversation(conn: sqlite3.Connection, client: LLMClient,
     return summary
 
 
+def tag_and_summarize_conversation(conn: sqlite3.Connection, client: LLMClient,
+                                   conv_id: str, title: str) -> tuple[list[str], str]:
+    """Generate tags AND a summary in a single LLM call, then persist both.
+
+    Halves the request count versus calling :func:`tag_conversation` and
+    :func:`summarize_conversation` separately — the key optimization for large
+    or rate-limited runs. Sets ``tagged_at`` and ``summarized_at`` together.
+    """
+    transcript = build_transcript(conn, conv_id)
+    user = (
+        f"Chat title: {title or '(untitled)'}\n\n"
+        f"Transcript:\n{transcript}\n\n"
+        'Return JSON: {"tags": ["...", "..."], "summary": "..."}'
+    )
+    obj = client.complete_json(user, system=TAG_AND_SUMMARY_SYSTEM)
+    if not isinstance(obj, dict):
+        raise LLMError(f"expected a JSON object with tags+summary, got {obj!r}")
+    names = upsert_tags(conn, conv_id, obj.get("tags", []))
+    summary = str(obj.get("summary", "") or "").strip()
+    now = _now_iso()
+    conn.execute(
+        "UPDATE conversations SET summary = ?, summary_model = ?, "
+        "summarized_at = ?, tagged_at = ? WHERE id = ?",
+        (summary, client.model, now, now, conv_id),
+    )
+    conn.commit()
+    return names, summary
+
+
 def run(conn: sqlite3.Connection, client: LLMClient, *,
         do_tag: bool = True, do_summarize: bool = True,
         limit: int | None = None, log=print) -> dict:
@@ -157,6 +198,13 @@ def run(conn: sqlite3.Connection, client: LLMClient, *,
     for i, (conv_id, title, tagged_at, summarized_at) in enumerate(rows, 1):
         label = (title or conv_id)[:60]
         try:
+            # Fast path: one request when a chat needs BOTH tags and a summary.
+            if do_tag and do_summarize and tagged_at is None and summarized_at is None:
+                names, _ = tag_and_summarize_conversation(conn, client, conv_id, title)
+                counts["tagged"] += 1
+                counts["summarized"] += 1
+                log(f"[{i}/{total}] tagged+summarized {label!r} -> {names}")
+                continue
             if do_tag and tagged_at is None:
                 names = tag_conversation(conn, client, conv_id, title)
                 counts["tagged"] += 1

@@ -24,6 +24,11 @@ def _reply(content):
 
 
 def test_disabled_without_key():
+    # Hermetic: ignore any real librarian_config.json / env so "no key" holds.
+    import os
+    L.CONFIG_PATH = Path(__file__).resolve().parent / "__no_such_config__.json"
+    for _v in ("FREELLMAPI_BASE_URL", "FREELLMAPI_KEY", "FREELLMAPI_MODEL"):
+        os.environ.pop(_v, None)
     c = LLMClient(base_url="http://x/v1", api_key=None)
     assert c.enabled is False
     try:

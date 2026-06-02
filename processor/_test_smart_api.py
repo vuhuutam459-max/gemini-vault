@@ -55,6 +55,14 @@ def main():
     serve.DB_PATH = db
     serve._librarian_log_path = str(Path(tmp.name) / ".lib.txt")
 
+    # Hermetic: ignore any real librarian_config.json / env so the LLM stays
+    # disabled and /api/ask degrades to FTS-only as the test expects.
+    import os
+    import llm_client as LC
+    LC.CONFIG_PATH = Path(tmp.name) / "__no_config__.json"
+    for _v in ("FREELLMAPI_BASE_URL", "FREELLMAPI_KEY", "FREELLMAPI_MODEL"):
+        os.environ.pop(_v, None)
+
     srv = ThreadingHTTPServer(("127.0.0.1", 0), serve.VaultHandler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     base = f"http://127.0.0.1:{srv.server_address[1]}"

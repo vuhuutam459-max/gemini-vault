@@ -29,8 +29,10 @@ class FakeClient:
         return self._enabled
 
     def complete_json(self, user, **kwargs):
+        # Combined tag+summary call returns both keys; dups/blanks on purpose.
         self.tag_calls += 1
-        return {"tags": ["Python", "  python ", "AsyncIO", ""]}  # dups/blanks on purpose
+        return {"tags": ["Python", "  python ", "AsyncIO", ""],
+                "summary": "  A short summary of the chat.  "}
 
     def complete(self, user, **kwargs):
         self.summary_calls += 1
@@ -61,53 +63,63 @@ def _seed(conn):
 def test_migration_adds_columns_and_tables():
     with tempfile.TemporaryDirectory() as tmp:
         conn = P.init_db(Path(tmp) / "v.db")
-        cols = [r[1] for r in conn.execute("PRAGMA table_info(conversations)")]
-        for c in ("summary", "summary_model", "summarized_at", "tagged_at"):
-            assert c in cols, f"missing column {c}"
-        tables = {r[0] for r in conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'")}
-        assert {"tags", "conversation_tags"} <= tables
-        conn.close()
+        try:
+            cols = [r[1] for r in conn.execute("PRAGMA table_info(conversations)")]
+            for c in ("summary", "summary_model", "summarized_at", "tagged_at"):
+                assert c in cols, f"missing column {c}"
+            tables = {r[0] for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'")}
+            assert {"tags", "conversation_tags"} <= tables
+        finally:
+            conn.close()  # Windows: release the file so TemporaryDirectory can delete it
 
 
 def test_tag_and_summarize_then_idempotent():
     with tempfile.TemporaryDirectory() as tmp:
         conn = P.init_db(Path(tmp) / "v.db")
-        _seed(conn)
-        client = FakeClient()
+        try:
+            _seed(conn)
+            client = FakeClient()
 
-        counts = Lib.run(conn, client, do_tag=True, do_summarize=True, log=lambda *_: None)
-        assert counts["tagged"] == 1 and counts["summarized"] == 1
+            counts = Lib.run(conn, client, do_tag=True, do_summarize=True, log=lambda *_: None)
+            assert counts["tagged"] == 1 and counts["summarized"] == 1
 
-        # tags normalized + de-duped: "Python"/" python " collapse to one
-        names = sorted(r[0] for r in conn.execute(
-            "SELECT t.name FROM tags t "
-            "JOIN conversation_tags ct ON ct.tag_id = t.id WHERE ct.conversation_id='c1'"))
-        assert names == ["asyncio", "python"], names
+            # Combined path: one LLM call covers both tags and summary.
+            assert client.tag_calls == 1 and client.summary_calls == 0, \
+                (client.tag_calls, client.summary_calls)
 
-        row = conn.execute(
-            "SELECT summary, summary_model, summarized_at, tagged_at "
-            "FROM conversations WHERE id='c1'").fetchone()
-        assert row[0] == "A short summary of the chat."   # trimmed
-        assert row[1] == "fake-model"
-        assert row[2] is not None and row[3] is not None    # timestamps set
+            # tags normalized + de-duped: "Python"/" python " collapse to one
+            names = sorted(r[0] for r in conn.execute(
+                "SELECT t.name FROM tags t "
+                "JOIN conversation_tags ct ON ct.tag_id = t.id WHERE ct.conversation_id='c1'"))
+            assert names == ["asyncio", "python"], names
 
-        # Second run must skip everything — no further LLM calls.
-        before = (client.tag_calls, client.summary_calls)
-        counts2 = Lib.run(conn, client, do_tag=True, do_summarize=True, log=lambda *_: None)
-        assert counts2["tagged"] == 0 and counts2["summarized"] == 0
-        assert (client.tag_calls, client.summary_calls) == before, "idempotency broken"
-        conn.close()
+            row = conn.execute(
+                "SELECT summary, summary_model, summarized_at, tagged_at "
+                "FROM conversations WHERE id='c1'").fetchone()
+            assert row[0] == "A short summary of the chat."   # trimmed
+            assert row[1] == "fake-model"
+            assert row[2] is not None and row[3] is not None    # timestamps set
+
+            # Second run must skip everything — no further LLM calls.
+            before = (client.tag_calls, client.summary_calls)
+            counts2 = Lib.run(conn, client, do_tag=True, do_summarize=True, log=lambda *_: None)
+            assert counts2["tagged"] == 0 and counts2["summarized"] == 0
+            assert (client.tag_calls, client.summary_calls) == before, "idempotency broken"
+        finally:
+            conn.close()
 
 
 def test_disabled_client_is_noop():
     with tempfile.TemporaryDirectory() as tmp:
         conn = P.init_db(Path(tmp) / "v.db")
-        _seed(conn)
-        counts = Lib.run(conn, FakeClient(enabled=False), log=lambda *_: None)
-        assert counts.get("skipped_disabled") is True
-        assert counts["tagged"] == 0 and counts["summarized"] == 0
-        conn.close()
+        try:
+            _seed(conn)
+            counts = Lib.run(conn, FakeClient(enabled=False), log=lambda *_: None)
+            assert counts.get("skipped_disabled") is True
+            assert counts["tagged"] == 0 and counts["summarized"] == 0
+        finally:
+            conn.close()
 
 
 def main():
