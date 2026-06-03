@@ -78,6 +78,24 @@ def main():
         assert ask["enabled"] is False, ask
         assert any(s["id"] == "c1" for s in ask["sources"]), ask
         print("  OK  /api/ask retrieves FTS sources (LLM disabled)")
+
+        # Configured provider but daemon offline: enabled stays True, honest error,
+        # FTS sources still returned, and the model is NEVER called (fast pre-flight).
+        class _OfflineGateway:
+            model = "gemma3:4b"
+            available = True
+            def reachable(self):
+                return False
+            def generate_text(self, *a, **k):
+                raise AssertionError("must not call the model when offline")
+            def generate_json(self, *a, **k):
+                raise AssertionError("must not call the model when offline")
+        serve.build_gateway = lambda *a, **k: _OfflineGateway()
+        ask2 = json.loads(_post(base, "/api/ask", {"question": "asyncio coroutines"}).read())
+        assert ask2["enabled"] is True and ask2["answer"] is None, ask2
+        assert "offline" in (ask2.get("error") or "").lower(), ask2
+        assert any(s["id"] == "c1" for s in ask2["sources"]), ask2
+        print("  OK  /api/ask: configured-but-offline → honest error, FTS fallback")
     finally:
         srv.shutdown()
         tmp.cleanup()

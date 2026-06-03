@@ -66,17 +66,32 @@ def test_no_key_yields_null_gateway():
             raise AssertionError("NullGateway must refuse to generate")
 
 
-def test_available_reflects_ollama_reachability():
+def test_available_is_config_based_not_a_live_ping():
+    # available must reflect "configured", never a live socket — a transient probe
+    # failure must not silently disable a provider that can actually answer.
+    gw = build_gateway({"base_url": "http://localhost:11434/v1",
+                        "api_key": "ollama", "model": "gemma3:4b"})
+    orig = G.socket.create_connection
+    try:
+        def _down(*a, **k):
+            raise OSError("connection refused")
+        G.socket.create_connection = _down            # daemon unreachable...
+        assert gw.available is True                    # ...yet still "available" (configured)
+    finally:
+        G.socket.create_connection = orig
+
+
+def test_reachable_is_an_advisory_ping():
     gw = build_gateway({"base_url": "http://localhost:11434/v1",
                         "api_key": "ollama", "model": "gemma3:4b"})
     orig = G.socket.create_connection
     try:
         G.socket.create_connection = lambda *a, **k: _FakeConn()      # daemon up
-        assert gw.available is True
+        assert gw.reachable() is True
         def _down(*a, **k):
             raise OSError("connection refused")
         G.socket.create_connection = _down                            # daemon down
-        assert gw.available is False                                   # no crash
+        assert gw.reachable() is False                                # no crash
     finally:
         G.socket.create_connection = orig
 
@@ -84,7 +99,6 @@ def test_available_reflects_ollama_reachability():
 def test_openai_compat_gateway_adapts_transport():
     gw = build_gateway({"base_url": "http://x/v1", "api_key": "k", "model": "gemma3:4b"})
     assert isinstance(gw, OpenAICompatGateway)
-    gw._ping = lambda: True                       # focus on transport, not the socket
     assert gw.available is True and gw.model == "gemma3:4b"
 
     captured = {}

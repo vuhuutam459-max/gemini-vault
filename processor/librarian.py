@@ -269,6 +269,12 @@ def main(argv=None):
         log("[librarian] No LLM provider configured; the Smart Librarian is opt-in. "
             "Start Ollama (ollama pull gemma3:4b) — nothing was sent anywhere.")
         return
+    # 2b. Batch pre-flight: a 600-chat run is pointless if the daemon is down.
+    #     (Advisory only — the interactive viewer instead attempts and reports.)
+    if not gateway.reachable():
+        log("[librarian] Provider configured but not responding — is Ollama running? "
+            "Start it (e.g. `ollama serve`) and re-run. Nothing was sent anywhere.")
+        return
     # 3. Open the database (the Librarian's own concern).
     conn = init_db(Path(args.db) if args.db else DB_PATH)
     try:

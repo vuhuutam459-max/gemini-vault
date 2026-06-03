@@ -77,6 +77,10 @@ class LLMGateway(Protocol):
         """True when AI calls can be attempted (a provider is configured)."""
         ...
 
+    def reachable(self) -> bool:
+        """Advisory: is the provider accepting connections right now? (pre-flight)"""
+        ...
+
     def generate_json(self, prompt: str, *, system: str | None = None) -> Any:
         """Run a single-turn prompt and parse the reply as JSON."""
         ...
@@ -100,12 +104,26 @@ class OpenAICompatGateway:
                                  model=model, timeout=timeout)
         self.model = self._client.model
 
-    # Health-ping budget: short enough to feel instant in the UI, long enough to
-    # survive a loaded local daemon. A closed/missing port fails far quicker.
-    PING_TIMEOUT = 1.0
+    # Pre-flight ping budget: long enough to survive a loaded local daemon, short
+    # enough to stay snappy. A genuinely closed port is refused near-instantly.
+    PING_TIMEOUT = 2.5
 
-    def _ping(self) -> bool:
-        """Fast TCP probe: is anything actually listening at host:port?"""
+    @property
+    def available(self) -> bool:
+        # "Configured" — NOT "reachable". We deliberately do NOT ping here: a
+        # transient probe failure (firewall, host isolation, a busy daemon) must
+        # never silently disable a provider that can actually answer. Reachability
+        # is verified at call time, where a real failure is caught and reported.
+        return self._client.enabled
+
+    def reachable(self) -> bool:
+        """Advisory live check: is the provider accepting connections right now?
+
+        A short TCP probe to the configured host:port. Useful as a *pre-flight*
+        for batch jobs (don't start 600 chats if the daemon is down) — but never
+        as a hard gate for interactive calls, which attempt directly so a probe
+        that can't connect doesn't override a model that can.
+        """
         parts = urlsplit(self._client.base_url)
         host = parts.hostname or "localhost"
         port = parts.port or (443 if parts.scheme == "https" else 80)
@@ -114,13 +132,6 @@ class OpenAICompatGateway:
                 return True
         except OSError:
             return False
-
-    @property
-    def available(self) -> bool:
-        # Configured AND reachable: a quick TCP ping means a missing/stopped
-        # Ollama daemon reports False up front (UI hides AI), instead of failing
-        # only mid-request. The probe is bounded by PING_TIMEOUT, never hangs.
-        return self._client.enabled and self._ping()
 
     def generate_json(self, prompt: str, *, system: str | None = None) -> Any:
         return self._client.complete_json(prompt, system=system)
@@ -139,6 +150,9 @@ class NullGateway:
 
     model = "(none)"
     available = False
+
+    def reachable(self) -> bool:
+        return False
 
     def generate_json(self, prompt: str, *, system: str | None = None) -> Any:
         raise LLMUnavailable("no LLM provider configured (Smart Librarian is opt-in)")

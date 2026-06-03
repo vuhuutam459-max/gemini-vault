@@ -255,13 +255,21 @@ class VaultHandler(SimpleHTTPRequestHandler):
                 if len(sources) >= 6:
                     break
 
-        # 2) Ask the LLM to answer over the excerpts — opt-in, degrades gracefully.
+        # 2) Ask the LLM to answer over the excerpts — opt-in, fail fast, degrade clearly.
         gateway = build_gateway()
         if not gateway.available:
+            # Not configured at all → offer FTS results only.
             self._json_response(200, {"enabled": False, "answer": None, "sources": sources})
             return
         if not sources:
             self._json_response(200, {"enabled": True, "answer": None, "sources": []})
+            return
+        # Configured but the daemon isn't responding: fail fast (a short pre-flight,
+        # not minutes of retries) with an honest message — NOT a fake "API key" note.
+        if not gateway.reachable():
+            self._json_response(200, {
+                "enabled": True, "answer": None, "sources": sources,
+                "error": "model offline — is Ollama running? Start it, then ask again."})
             return
 
         context = "\n\n".join(
