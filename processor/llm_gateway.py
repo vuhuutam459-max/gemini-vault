@@ -31,8 +31,10 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
+from urllib.parse import urlsplit
 
 # The transport (stdlib-only urllib client) stays a dumb pipe; the gateway owns
 # the policy (which provider, what config) and adapts it to a clean interface.
@@ -98,12 +100,27 @@ class OpenAICompatGateway:
                                  model=model, timeout=timeout)
         self.model = self._client.model
 
+    # Health-ping budget: short enough to feel instant in the UI, long enough to
+    # survive a loaded local daemon. A closed/missing port fails far quicker.
+    PING_TIMEOUT = 1.0
+
+    def _ping(self) -> bool:
+        """Fast TCP probe: is anything actually listening at host:port?"""
+        parts = urlsplit(self._client.base_url)
+        host = parts.hostname or "localhost"
+        port = parts.port or (443 if parts.scheme == "https" else 80)
+        try:
+            with socket.create_connection((host, port), timeout=self.PING_TIMEOUT):
+                return True
+        except OSError:
+            return False
+
     @property
     def available(self) -> bool:
-        # Cheap, non-blocking check: a provider is configured. We deliberately do
-        # NOT ping the network here so startup stays instant; an unreachable
-        # provider surfaces as a caught LLMError at call time (graceful degrade).
-        return self._client.enabled
+        # Configured AND reachable: a quick TCP ping means a missing/stopped
+        # Ollama daemon reports False up front (UI hides AI), instead of failing
+        # only mid-request. The probe is bounded by PING_TIMEOUT, never hangs.
+        return self._client.enabled and self._ping()
 
     def generate_json(self, prompt: str, *, system: str | None = None) -> Any:
         return self._client.complete_json(prompt, system=system)

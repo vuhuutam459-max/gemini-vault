@@ -23,6 +23,14 @@ def _reply(content):
     return {"choices": [{"message": {"role": "assistant", "content": content}}]}
 
 
+class _FakeConn:
+    """Stand-in for a successful socket connection (a context manager)."""
+    def __enter__(self):
+        return self
+    def __exit__(self, *a):
+        return False
+
+
 def test_default_config_is_local_ollama():
     # Hermetic: no config file, no env — must fall back to the free local default.
     G.CONFIG_PATH = Path(__file__).resolve().parent / "__no_such_config__.json"
@@ -58,9 +66,25 @@ def test_no_key_yields_null_gateway():
             raise AssertionError("NullGateway must refuse to generate")
 
 
+def test_available_reflects_ollama_reachability():
+    gw = build_gateway({"base_url": "http://localhost:11434/v1",
+                        "api_key": "ollama", "model": "gemma3:4b"})
+    orig = G.socket.create_connection
+    try:
+        G.socket.create_connection = lambda *a, **k: _FakeConn()      # daemon up
+        assert gw.available is True
+        def _down(*a, **k):
+            raise OSError("connection refused")
+        G.socket.create_connection = _down                            # daemon down
+        assert gw.available is False                                   # no crash
+    finally:
+        G.socket.create_connection = orig
+
+
 def test_openai_compat_gateway_adapts_transport():
     gw = build_gateway({"base_url": "http://x/v1", "api_key": "k", "model": "gemma3:4b"})
     assert isinstance(gw, OpenAICompatGateway)
+    gw._ping = lambda: True                       # focus on transport, not the socket
     assert gw.available is True and gw.model == "gemma3:4b"
 
     captured = {}
