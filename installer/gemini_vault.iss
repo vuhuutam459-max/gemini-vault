@@ -1,6 +1,6 @@
 ; Inno Setup script for Gemini Vault (Windows installer)
 ; ---------------------------------------------------------------------------
-; Build the .exe first:   python build\build_windows.py   (produces dist\GeminiVault.exe)
+; Build the app first:   python build\build_windows.py   (produces dist\GeminiVault\)
 ; Then compile this script with Inno Setup (https://jrsoftware.org/isinfo.php):
 ;     "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\gemini_vault.iss
 ; Output: installer\Output\GeminiVault-Setup.exe
@@ -30,6 +30,11 @@ OutputBaseFilename=GeminiVault-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+; Branded wizard artwork (HiDPI variants listed too).
+SetupIconFile=..\build\icon.ico
+UninstallDisplayIcon={app}\{#MyAppExeName}
+WizardImageFile=assets\wizard-large.bmp,assets\wizard-large-2x.bmp
+WizardSmallImageFile=assets\wizard-small.bmp,assets\wizard-small-2x.bmp
 ; A 64-bit, per-machine install (installer will prompt for elevation).
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
@@ -39,21 +44,60 @@ LicenseFile=..\LICENSE
 Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 
+; ── Install types map to component presets (the user can still pick Custom) ──
+[Types]
+Name: "full";    Description: "Full installation (recommended)"
+Name: "compact"; Description: "Viewer only"
+Name: "custom";  Description: "Custom installation"; Flags: iscustom
+
+; ── The checkboxes the user sees on the 'Select Components' page ──
+[Components]
+Name: "core"; Description: "Gemini Vault viewer — your chat archive"; \
+    Types: full compact custom; Flags: fixed
+Name: "ai";   Description: "Smart Librarian — local AI: auto-tags, summaries & ask-the-archive (needs Ollama)"; \
+    Types: full
+Name: "tools"; Description: "Management tools — scheduled backup helper"; \
+    Types: full
+
 [Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Components: core
 
 [Files]
-; The one-file executable produced by PyInstaller.
-Source: "..\dist\GeminiVault.exe"; DestDir: "{app}"; Flags: ignoreversion
-; Handy docs alongside the app.
-Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\LICENSE";   DestDir: "{app}"; Flags: ignoreversion
+; Core: the one-DIR app (GeminiVault.exe + _internal\) plus docs. Always installed.
+Source: "..\dist\GeminiVault\*"; DestDir: "{app}"; Components: core; \
+    Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\README.md"; DestDir: "{app}"; Components: core; Flags: ignoreversion
+Source: "..\LICENSE";   DestDir: "{app}"; Components: core; Flags: ignoreversion
+; Tools: scheduled-backup helper (optional).
+Source: "..\backup.bat"; DestDir: "{app}"; Components: tools; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\Gemini Vault";        Filename: "{app}\{#MyAppExeName}"
+Name: "{group}\Gemini Vault";           Filename: "{app}\{#MyAppExeName}"; Components: core
+Name: "{group}\Backup Gemini Vault";    Filename: "{app}\backup.bat";      Components: tools
 Name: "{group}\Uninstall Gemini Vault"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\Gemini Vault";  Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{autodesktop}\Gemini Vault";     Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; Components: core
 
 [Run]
 ; Offer to launch right after install.
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,Gemini Vault}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+{ When the user does NOT select the AI module, drop a config flag so the app
+  starts with the Smart Librarian disabled by default. We never overwrite an
+  existing user config — only seed the opt-out when none is present. }
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  DataDir, CfgFile: string;
+begin
+  if CurStep = ssPostInstall then
+  begin
+    if not IsComponentSelected('ai') then
+    begin
+      DataDir := ExpandConstant('{localappdata}\GeminiVault');
+      ForceDirectories(DataDir);
+      CfgFile := DataDir + '\librarian_config.json';
+      if not FileExists(CfgFile) then
+        SaveStringToFile(CfgFile, '{"ai_enabled": false}' + #13#10, False);
+    end;
+  end;
+end;

@@ -47,18 +47,30 @@ a = Analysis(
 
 pyz = PYZ(a.pure)
 
+# One-DIR build (not --onefile): the app launches straight from its folder with
+# no temp self-extraction. This avoids PyInstaller's onefile bootloader failing
+# on non-ASCII paths (e.g. a Cyrillic Windows username under %TEMP%), and starts
+# faster. Inno Setup ships the whole folder into Program Files.
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.datas,
     [],
+    exclude_binaries=True,
     name="GeminiVault",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    runtime_tmpdir=None,
-    console=False,            # windowed desktop app; flip to True to see logs
+    console=False,            # windowed desktop app
     icon=str(ROOT / "build" / "icon.ico") if _exists("build", "icon.ico") else None,
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name="GeminiVault",
 )

@@ -67,6 +67,11 @@ env/
 exports/
 *.vault.zip
 
+# === PyInstaller / desktop build artifacts ===
+dist/
+build_pyi/
+build/__pycache__/
+
 # === OS / editors ===
 .DS_Store
 Thumbs.db

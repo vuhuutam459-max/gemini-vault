@@ -1,12 +1,16 @@
 name: Build desktop binaries
 
-# Builds a self-contained Gemini Vault executable for Windows, macOS and Linux.
+# Builds a self-contained Gemini Vault app for Windows, macOS and Linux.
 # - On every push/PR to main: build all three and upload them as artifacts (CI check).
-# - On a version tag (v1.2.3): also attach the binaries to a GitHub Release.
+# - On a version tag (v1.2.3): also attach the packaged apps to a GitHub Release.
 #
 # Why CI for Mac/Linux? The maintainer develops on Windows; GitHub's hosted
 # runners give us native macOS and Linux machines to produce real native builds
 # (PyInstaller does NOT cross-compile — each OS must be built on its own runner).
+#
+# We build in one-DIR mode (a GeminiVault/ folder, not a single .exe): it starts
+# without temp self-extraction and avoids the onefile bootloader's failure on
+# non-ASCII paths. Each runner tars its folder into one archive for distribution.
 
 on:
   push:
@@ -29,13 +33,10 @@ jobs:
         include:
           - os: windows-latest
             artifact: GeminiVault-windows
-            binary: dist/GeminiVault.exe
           - os: macos-latest
             artifact: GeminiVault-macos
-            binary: dist/GeminiVault
           - os: ubuntu-latest
             artifact: GeminiVault-linux
-            binary: dist/GeminiVault
 
     steps:
       - uses: actions/checkout@v4
@@ -56,19 +57,25 @@ jobs:
           python processor/_test_serve_librarian.py
           python processor/_test_smart_api.py
 
-      - name: Build executable
+      - name: Build app (one-dir)
         run: python build/build_windows.py
+
+      - name: Package app folder
+        shell: bash
+        run: |
+          cd dist
+          tar -czf "../${{ matrix.artifact }}.tar.gz" GeminiVault
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: ${{ matrix.binary }}
+          path: ${{ matrix.artifact }}.tar.gz
           if-no-files-found: error
 
       - name: Attach to Release (tags only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.binary }}
+          files: ${{ matrix.artifact }}.tar.gz
           fail_on_unmatched_files: true

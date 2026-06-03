@@ -176,6 +176,10 @@ def load_provider_config() -> dict[str, str]:
             file_cfg = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
             # Only override with truthy values so a partial file can't blank a key.
             cfg.update({k: v for k, v in file_cfg.items() if v})
+            # ai_enabled is a real boolean switch (the installer writes false when
+            # the user opts out of the AI module), so carry it even when falsy.
+            if "ai_enabled" in file_cfg:
+                cfg["ai_enabled"] = bool(file_cfg["ai_enabled"])
         except (json.JSONDecodeError, OSError):
             pass
 
@@ -200,6 +204,10 @@ def build_gateway(config: dict[str, str] | None = None) -> LLMGateway:
     ``config`` explicitly (e.g. in tests) bypasses file/env resolution.
     """
     cfg = config if config is not None else load_provider_config()
+    # Explicit opt-out (installer writes {"ai_enabled": false} when the user
+    # skips the AI module) — keep the whole app working, just without AI.
+    if cfg.get("ai_enabled") is False:
+        return NullGateway()
     if not cfg.get("api_key"):
         return NullGateway()
     return OpenAICompatGateway(

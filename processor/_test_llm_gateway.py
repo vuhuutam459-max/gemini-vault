@@ -96,6 +96,15 @@ def test_reachable_is_an_advisory_ping():
         G.socket.create_connection = orig
 
 
+def test_ai_disabled_flag_yields_null_gateway():
+    # Installer writes {"ai_enabled": false} when the user opts out of AI: even
+    # with a valid provider key present, the gateway must be the Null one.
+    gw = build_gateway({"base_url": "http://localhost:11434/v1", "api_key": "ollama",
+                        "model": "gemma3:4b", "ai_enabled": False})
+    assert isinstance(gw, NullGateway)
+    assert gw.available is False
+
+
 def test_openai_compat_gateway_adapts_transport():
     gw = build_gateway({"base_url": "http://x/v1", "api_key": "k", "model": "gemma3:4b"})
     assert isinstance(gw, OpenAICompatGateway)

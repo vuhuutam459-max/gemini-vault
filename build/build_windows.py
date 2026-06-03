@@ -58,11 +58,14 @@ def build() -> None:
         print(f"\nBuild FAILED (exit {rc}).")
         sys.exit(rc)
 
-    exe = ROOT / "dist" / ("GeminiVault.exe" if sys.platform == "win32" else "GeminiVault")
+    exe_name = "GeminiVault.exe" if sys.platform == "win32" else "GeminiVault"
+    exe = ROOT / "dist" / "GeminiVault" / exe_name      # one-DIR layout
     print("\nBuild OK.")
+    print(f"  App folder: {ROOT / 'dist' / 'GeminiVault'}")
     print(f"  Executable: {exe}")
-    print("  Double-click it (or run from a terminal) — it opens the viewer in your browser.")
-    print("  User data (DB/config/logs) is created under your per-user app-data folder.")
+    print("  Run the executable — it opens the viewer in your browser. Ship the whole")
+    print("  GeminiVault folder (the installer does this); user data lives in your")
+    print("  per-user app-data folder, separate from the program files.")
 
 
 if __name__ == "__main__":
