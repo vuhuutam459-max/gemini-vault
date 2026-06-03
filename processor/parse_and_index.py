@@ -56,6 +56,11 @@ CREATE TABLE IF NOT EXISTS conversations (
     canvas_count  INTEGER DEFAULT 0,
     import_hash  TEXT,
     source       TEXT DEFAULT 'gemini',
+    -- Smart Librarian (LLM-generated; NULL until processed)
+    summary       TEXT,
+    summary_model TEXT,
+    summarized_at TEXT,
+    tagged_at     TEXT,
     UNIQUE(id, account_id)
 );
 
@@ -77,6 +82,18 @@ CREATE TABLE IF NOT EXISTS canvas_artifacts (
     raw_html        TEXT,
     parent_message_seq INTEGER,
     UNIQUE(id, conversation_id)
+);
+
+-- Smart Librarian: auto-tags (normalized, many-to-many)
+CREATE TABLE IF NOT EXISTS tags (
+    id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS conversation_tags (
+    conversation_id TEXT NOT NULL REFERENCES conversations(id),
+    tag_id          INTEGER NOT NULL REFERENCES tags(id),
+    PRIMARY KEY (conversation_id, tag_id)
 );
 
 -- FTS5 for full-text search
@@ -143,6 +160,16 @@ def init_db(db_path: Path) -> sqlite3.Connection:
     cols = [r[1] for r in conn.execute("PRAGMA table_info(conversations)")]
     if "source" not in cols:
         conn.execute("ALTER TABLE conversations ADD COLUMN source TEXT DEFAULT 'gemini'")
+    # Smart Librarian columns (added after multi-source). Same ALTER pattern:
+    # CREATE TABLE IF NOT EXISTS won't add columns to a pre-existing table.
+    for col, decl in (
+        ("summary", "TEXT"),
+        ("summary_model", "TEXT"),
+        ("summarized_at", "TEXT"),
+        ("tagged_at", "TEXT"),
+    ):
+        if col not in cols:
+            conn.execute(f"ALTER TABLE conversations ADD COLUMN {col} {decl}")
     conn.commit()
     return conn
 

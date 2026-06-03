@@ -26,6 +26,10 @@ cookies*.txt
 cookies*.json
 *.cookies
 
+# Smart Librarian — FreeLLMAPI key + batch log (NEVER commit the key)
+librarian_config.json
+.librarian_log.txt
+
 # Google Takeout archives
 *.zip
 takeout*/

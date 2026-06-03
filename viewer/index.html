@@ -95,6 +95,87 @@
     #theme-toggle:hover { border-color: #bb9af7; }
 
     /* ═══════════════════════════════════════════════════════════════
+       SMART LIBRARIAN — tag chips, AI summary, "ask the archive" bar
+       Default (dark) palette; neon overrides live in the NEON block.
+       ═══════════════════════════════════════════════════════════════ */
+    /* read-only tag chip (on cards / in summary) */
+    .tag-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-family: var(--neon-mono, 'JetBrains Mono', monospace);
+      font-size: 10px; line-height: 1.4; padding: 2px 7px; border-radius: 999px;
+      color: #aeb7e0; background: rgba(122,162,247,0.10);
+      border: 1px solid #34344a; white-space: nowrap;
+    }
+    .tag-chip svg { width: 9px; height: 9px; opacity: 0.75; flex: none; }
+    .card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+
+    /* sidebar tag-filter — toggle chips (44px tap height on touch) */
+    #tag-filter { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 12px; border-bottom: 1px solid #2a2a3a; }
+    #tag-filter:empty { display: none; padding: 0; border: none; }
+    .tag-toggle {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 4px 9px;
+      border-radius: 12px; cursor: pointer; border: 1px solid #3b3b52;
+      background: transparent; color: #a9b1d6; transition: background .18s ease, border-color .18s ease, color .18s ease;
+    }
+    .tag-toggle:hover { border-color: #7aa2f7; }
+    .tag-toggle.active { background: #7aa2f7; color: #14141f; border-color: #7aa2f7; font-weight: 700; }
+    .tag-toggle:focus-visible { outline: 2px solid #7aa2f7; outline-offset: 2px; }
+
+    /* conversation AI summary card */
+    .chat-summary {
+      max-width: 800px; margin: 18px auto 0; padding: 12px 16px;
+      background: #16161f; border: 1px solid #2a2a3a; border-left: 3px solid #bb9af7;
+      border-radius: 10px;
+    }
+    .chat-summary .summary-label {
+      display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+      font-family: 'JetBrains Mono', monospace; font-size: 10px;
+      text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; color: #bb9af7;
+    }
+    .chat-summary .summary-label svg { width: 13px; height: 13px; flex: none; }
+    .chat-summary p { margin: 0; font-size: 13.5px; line-height: 1.6; color: #c8d0f0; }
+    .chat-summary .card-tags { margin-top: 10px; }
+
+    /* "ask the archive" bar + result panel */
+    #ask-bar { display: flex; align-items: center; gap: 8px; padding: 10px 24px; border-bottom: 1px solid #2a2a3a; background: #13131b; }
+    #ask-bar .ask-icon { width: 17px; height: 17px; color: #bb9af7; flex: none; }
+    #ask-input {
+      flex: 1; min-width: 0; height: 40px; padding: 0 14px;
+      background: #1a1a2e; color: #c0caf5; border: 1px solid #3b3b52;
+      border-radius: 10px; font-size: 13px; outline: none;
+    }
+    #ask-input:focus { border-color: #bb9af7; }
+    #ask-input::placeholder { color: #565f89; }
+    #ask-btn {
+      height: 40px; padding: 0 16px; background: #bb9af7; color: #14141f; border: none;
+      border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; flex: none;
+      transition: filter .18s ease;
+    }
+    #ask-btn:hover { filter: brightness(1.08); }
+    #ask-btn:disabled { opacity: 0.5; cursor: default; }
+    #ask-btn:focus-visible { outline: 2px solid #bb9af7; outline-offset: 2px; }
+    #ask-result {
+      max-width: 980px; margin: 0 auto; padding: 14px 24px; max-height: 40vh; overflow-y: auto;
+      border-bottom: 1px solid #2a2a3a; font-size: 13.5px; line-height: 1.6; color: #c8d0f0;
+    }
+    #ask-result .ask-answer { white-space: pre-wrap; }
+    #ask-result .ask-sources { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+    #ask-result .ask-source {
+      font-size: 11px; padding: 4px 10px; border-radius: 8px; cursor: pointer;
+      background: rgba(122,162,247,0.10); border: 1px solid #34344a; color: #aeb7e0;
+    }
+    #ask-result .ask-source:hover { border-color: #7aa2f7; color: #c0caf5; }
+    #ask-result .ask-note { color: #8a93b8; font-size: 12px; }
+
+    @media (max-width: 768px) {
+      #ask-bar { padding: 8px 14px; flex-wrap: wrap; }
+      #ask-result { padding: 12px 14px; max-height: 50vh; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .tag-toggle, #ask-btn, #ask-input { transition: none !important; }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
        NEON THEME — techno-noir / cyberpunk "hacker mode"
        Activated via <html data-theme="neon">. Purely additive: it
        overrides the default palette, never replaces it.
@@ -247,6 +328,41 @@
       box-shadow: 0 0 8px rgba(255,31,143,0.30);
     }
     html[data-theme="neon"] .canvas-btn:hover { box-shadow: 0 0 14px rgba(255,31,143,0.55); }
+
+    /* Smart Librarian — neon overrides */
+    html[data-theme="neon"] .tag-chip {
+      color: var(--neon-cyan); border-color: var(--neon-border); background: rgba(0,234,255,0.07);
+    }
+    html[data-theme="neon"] .tag-toggle { border-color: var(--neon-border); color: var(--neon-dim); }
+    html[data-theme="neon"] .tag-toggle:hover { border-color: var(--neon-cyan); color: var(--neon-cyan); }
+    html[data-theme="neon"] .tag-toggle.active {
+      background: transparent; color: var(--neon-cyan); border-color: var(--neon-cyan);
+      box-shadow: 0 0 10px rgba(0,234,255,0.45); text-shadow: 0 0 6px rgba(0,234,255,0.6);
+    }
+    html[data-theme="neon"] .chat-summary {
+      background: rgba(10,18,30,0.66); border: 1px solid var(--neon-border);
+      border-left: 3px solid var(--neon-magenta);
+    }
+    html[data-theme="neon"] .chat-summary .summary-label {
+      color: var(--neon-magenta); text-shadow: 0 0 8px rgba(255,31,143,0.55);
+    }
+    html[data-theme="neon"] .chat-summary p { color: var(--neon-text); }
+    html[data-theme="neon"] #ask-bar { background: transparent; border-color: var(--neon-border); }
+    html[data-theme="neon"] #ask-bar .ask-icon { color: var(--neon-magenta); }
+    html[data-theme="neon"] #ask-input {
+      background: rgba(10,18,30,0.82); color: var(--neon-text); border-color: var(--neon-border);
+    }
+    html[data-theme="neon"] #ask-input:focus { border-color: var(--neon-cyan); box-shadow: 0 0 11px rgba(0,234,255,0.45); }
+    html[data-theme="neon"] #ask-input::placeholder { color: var(--neon-dim); }
+    html[data-theme="neon"] #ask-btn {
+      background: transparent; color: var(--neon-magenta); border: 1px solid var(--neon-magenta);
+    }
+    html[data-theme="neon"] #ask-btn:hover { box-shadow: 0 0 12px rgba(255,31,143,0.5); }
+    html[data-theme="neon"] #ask-result { border-color: var(--neon-border); color: var(--neon-text); }
+    html[data-theme="neon"] #ask-result .ask-source {
+      background: rgba(0,234,255,0.07); border-color: var(--neon-border); color: var(--neon-cyan);
+    }
+    html[data-theme="neon"] #ask-result .ask-note { color: var(--neon-dim); }
 
     /* dashboard — glowing cards + neon bars */
     html[data-theme="neon"] .dash-card {
@@ -464,6 +580,7 @@
       </label>
     </div>
     <div id="year-filter" style="display:flex;flex-wrap:wrap;gap:4px;padding:6px 12px;border-bottom:1px solid #2a2a3a"></div>
+    <div id="tag-filter"></div>
     <div id="chat-list"></div>
     <div id="canvas-list" style="display:none;overflow-y:auto;flex:1"></div>
     <div style="padding:8px 16px;border-top:1px solid #2a2a3a;font-size:11px;color:#565f89">
@@ -501,6 +618,16 @@
       <input type="text" id="import-url" data-i18n-ph="import_url_ph" placeholder="Paste a Gemini link..." style="width:240px;padding:8px 14px;background:#1a1a2e;color:#c0caf5;border:1px solid #3b3b52;border-radius:8px;font-size:13px;outline:none">
       <button onclick="importFromUrl()" data-i18n="import_btn" style="padding:8px 12px;background:#9ece6a;color:#1a1b26;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600">Import</button>
     </div>
+
+    <div id="ask-bar">
+      <svg class="ask-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/>
+      </svg>
+      <input type="search" id="ask-input" data-i18n-ph="ask_ph" placeholder="Ask the archive…"
+        aria-label="Ask the archive" onkeydown="if(event.key==='Enter')askArchive()">
+      <button id="ask-btn" onclick="askArchive()" data-i18n="ask_btn">Ask</button>
+    </div>
+    <div id="ask-result" style="display:none" aria-live="polite"></div>
 
     <div id="messages-container">
       <div id="welcome">
@@ -655,6 +782,12 @@
         invalid_link: 'Paste a chat or Canvas link from gemini.google.com',
         big_md_title: 'Gemini Vault — Full export', big_md_date: 'Date', big_md_chats: 'Chats', big_md_toc: 'Table of contents',
         export_doc_meta: 'Account',
+        ask_ph: 'Ask the archive…', ask_btn: 'Ask',
+        ask_thinking: 'Searching the archive…',
+        ask_disabled: 'Smart answers are offline — start the Librarian model (e.g. Ollama) or set a provider. Showing matching chats instead:',
+        ask_no_sources: 'No matching chats found.',
+        ask_error: 'Could not get an answer',
+        ai_summary: 'AI summary', sources_label: 'Sources',
       },
       ru: {
         all_accounts: 'Все аккаунты', all_sources: 'Все источники', tab_chats: 'Чаты', tab_docs: 'Документы',
@@ -713,6 +846,12 @@
         invalid_link: 'Вставьте ссылку на чат или Canvas из gemini.google.com',
         big_md_title: 'Gemini Vault — Полный экспорт', big_md_date: 'Дата', big_md_chats: 'Чатов', big_md_toc: 'Оглавление',
         export_doc_meta: 'Аккаунт',
+        ask_ph: 'Спросить архив…', ask_btn: 'Спросить',
+        ask_thinking: 'Ищу по архиву…',
+        ask_disabled: 'Умные ответы офлайн — запусти модель Библиотекаря (например, Ollama) или укажи провайдера. Пока показываю подходящие чаты:',
+        ask_no_sources: 'Подходящих чатов не найдено.',
+        ask_error: 'Не удалось получить ответ',
+        ai_summary: 'AI-саммари', sources_label: 'Источники',
       },
     };
 
@@ -744,7 +883,7 @@
       localStorage.setItem('gv_lang', lang);
       applyStaticI18n();
       // Re-render dynamic views (filters carry localized labels built via t())
-      if (allChats.length) { renderYearFilter(); renderSourceFilter(); }
+      if (allChats.length) { renderYearFilter(); renderSourceFilter(); renderTagFilter(); }
       if (currentTab === 'chats') renderChatList(); else renderCanvasList();
       const title = document.getElementById('conv-title').textContent;
       if (currentConvId) openConversation(currentConvId);
@@ -843,9 +982,11 @@
       allChats = await api('/conversations', params);
       selectedYear = 'all';
       selectedSource = 'all';
+      selectedTags = new Set();
 
       renderYearFilter();
       renderSourceFilter();
+      renderTagFilter();
       renderChatList();
       document.getElementById('load-more-btn').style.display = 'none';
     }
@@ -869,7 +1010,44 @@
 
     let selectedYear = 'all';
     let selectedSource = 'all';
+    let selectedTags = new Set();   // client-side AND-filter over loaded chats
 
+    // Inline SVG icons (vector, theme-able — see ui-ux-pro-max: no emoji as icons).
+    const ICON_TAG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>';
+    const ICON_SPARK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>';
+
+    function tagChipHtml(name) {
+      return `<span class="tag-chip">${ICON_TAG}${escapeHtml(name)}</span>`;
+    }
+
+    // Rebuild the sidebar tag-filter from tags present on the loaded chats.
+    // Multi-select: a chat matches only if it has ALL selected tags (AND).
+    function renderTagFilter() {
+      const box = document.getElementById('tag-filter');
+      const counts = new Map();
+      for (const c of allChats) {
+        for (const tg of (c.tags || [])) counts.set(tg, (counts.get(tg) || 0) + 1);
+      }
+      box.innerHTML = '';
+      if (counts.size === 0) return;  // CSS :empty hides the row entirely
+      // Most-used tags first, then alphabetical; cap to keep the sidebar tidy.
+      const ordered = [...counts.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 40);
+      for (const [name] of ordered) {
+        const btn = document.createElement('button');
+        btn.className = 'tag-toggle' + (selectedTags.has(name) ? ' active' : '');
+        btn.textContent = name;
+        btn.setAttribute('aria-pressed', selectedTags.has(name) ? 'true' : 'false');
+        btn.addEventListener('click', () => {
+          if (selectedTags.has(name)) selectedTags.delete(name);
+          else selectedTags.add(name);
+          renderTagFilter();
+          renderChatList();
+        });
+        box.appendChild(btn);
+      }
+    }
     // Provider id (stored in DB) -> human label. Unknown ids are Title-cased.
     const SOURCE_LABELS = { gemini: 'Gemini', chatgpt: 'ChatGPT', claude: 'Claude' };
     function sourceLabel(s) {
@@ -961,6 +1139,13 @@
       if (selectedSource !== 'all') {
         filtered = filtered.filter(c => (c.source || 'gemini') === selectedSource);
       }
+      if (selectedTags.size > 0) {
+        filtered = filtered.filter(c => {
+          const tags = new Set(c.tags || []);
+          for (const need of selectedTags) if (!tags.has(need)) return false;  // AND
+          return true;
+        });
+      }
       sortChats(filtered);
 
       for (const c of filtered) {
@@ -970,15 +1155,71 @@
         const msgWord = lang === 'en' ? 'msgs' : 'сообщ.';
         // Show a provider badge only in the "All sources" view, where chats are mixed.
         const srcBadge = selectedSource === 'all' ? sourceBadgeHtml(c.source) : '';
+        const tags = c.tags || [];
+        const tagsHtml = tags.length
+          ? `<div class="card-tags">${tags.slice(0, 4).map(tagChipHtml).join('')}` +
+            (tags.length > 4 ? `<span class="tag-chip">+${tags.length - 4}</span>` : '') + `</div>`
+          : '';
         div.innerHTML = `
           <div class="chat-item-title">${srcBadge}${escapeHtml(c.title || t('untitled'))}</div>
           <div class="chat-item-meta">${c.message_count} ${msgWord}${canvasBadge} · ${formatDate(c.updated_time || c.created_time)}</div>
+          ${tagsHtml}
         `;
         div.addEventListener('click', () => openConversation(c.id));
         list.appendChild(div);
       }
 
       document.getElementById('chat-count').textContent = t('chats_n', filtered.length);
+    }
+
+    // ── Smart search: "ask the archive" ──
+
+    async function askArchive() {
+      const input = document.getElementById('ask-input');
+      const question = input.value.trim();
+      const panel = document.getElementById('ask-result');
+      const btn = document.getElementById('ask-btn');
+      if (!question) { input.focus(); return; }
+
+      panel.style.display = 'block';
+      panel.innerHTML = `<div class="ask-note">${t('ask_thinking')}</div>`;
+      btn.disabled = true;
+      try {
+        const resp = await fetch(`${API}/ask`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question }),
+        });
+        const data = await resp.json();
+        renderAskResult(data);
+      } catch (err) {
+        panel.innerHTML = `<div class="ask-note">${t('ask_error')}: ${escapeHtml(err.message)}</div>`;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function renderAskResult(data) {
+      const panel = document.getElementById('ask-result');
+      let html = '';
+      if (data.answer) {
+        html += `<div class="ask-answer">${escapeHtml(data.answer)}</div>`;
+      } else if (data.enabled === false) {
+        html += `<div class="ask-note">${t('ask_disabled')}</div>`;
+      } else if (data.error) {
+        html += `<div class="ask-note">${t('ask_error')}: ${escapeHtml(data.error)}</div>`;
+      }
+      const sources = data.sources || [];
+      if (sources.length) {
+        html += '<div class="ask-sources">';
+        for (const s of sources) {
+          html += `<span class="ask-source" onclick="openConversation('${escapeAttr(s.id)}')">${escapeHtml(s.title || t('untitled'))}</span>`;
+        }
+        html += '</div>';
+      } else if (!data.answer) {
+        html += `<div class="ask-note">${t('ask_no_sources')}</div>`;
+      }
+      panel.innerHTML = html;
     }
 
     // ── Conversation View ──
@@ -1005,6 +1246,19 @@
         }
 
         let html = '';
+        // Smart Librarian header: AI summary + tags (shown only when present)
+        const convTags = conv.tags || [];
+        if (conv.summary || convTags.length) {
+          html += '<div class="chat-summary">';
+          if (conv.summary) {
+            html += `<div class="summary-label">${ICON_SPARK}${t('ai_summary')}</div>`;
+            html += `<p>${escapeHtml(conv.summary)}</p>`;
+          }
+          if (convTags.length) {
+            html += `<div class="card-tags">${convTags.map(tagChipHtml).join('')}</div>`;
+          }
+          html += '</div>';
+        }
         for (const msg of data.messages) {
           html += renderMessage(msg, canvasMap.get(msg.seq) || []);
         }

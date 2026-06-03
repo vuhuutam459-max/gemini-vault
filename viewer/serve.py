@@ -39,6 +39,17 @@ _scraper_lock = threading.Lock()
 _scraper_proc = None
 _scraper_log_path = str(VIEWER_DIR.parent / ".scraper_log.txt")
 
+# Global Smart Librarian state (mirrors the scraper pattern above)
+_librarian_lock = threading.Lock()
+_librarian_proc = None
+_librarian_log_path = str(VIEWER_DIR.parent / ".librarian_log.txt")
+
+# Smart Librarian LLM gateway (stdlib-only; safe to import even without a provider).
+# The viewer depends only on the gateway *interface* — it never touches a concrete
+# client or provider, so AI is a clean optional plugin.
+sys.path.insert(0, str(VIEWER_DIR.parent / "processor"))
+from llm_gateway import build_gateway, LLMError, LLMUnavailable  # noqa: E402
+
 
 def get_db() -> sqlite3.Connection:
     conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
@@ -72,6 +83,12 @@ class VaultHandler(SimpleHTTPRequestHandler):
             self._handle_scrape_all()
         elif parsed.path == "/api/scrape-stop":
             self._handle_scrape_stop()
+        elif parsed.path == "/api/librarian/run":
+            self._handle_librarian_run()
+        elif parsed.path == "/api/librarian/stop":
+            self._handle_librarian_stop()
+        elif parsed.path == "/api/ask":
+            self._handle_ask()
         else:
             self._json_response(404, {"error": "Not found"})
 
@@ -136,6 +153,139 @@ class VaultHandler(SimpleHTTPRequestHandler):
             else:
                 self._json_response(200, {"status": "not_running"})
 
+    # ── Smart Librarian (auto-tag / summarize) — same subprocess pattern ──
+
+    def _handle_librarian_run(self):
+        global _librarian_proc
+        with _librarian_lock:
+            if _librarian_proc and _librarian_proc.poll() is None:
+                self._json_response(409, {"error": "Librarian already running"})
+                return
+
+            length = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(length)) if length else {}
+            # Default to doing both unless the caller narrows the scope.
+            do_tag = bool(body.get("tag", True))
+            do_summarize = bool(body.get("summarize", True))
+            if not do_tag and not do_summarize:
+                self._json_response(400, {"error": "Enable at least one of tag/summarize"})
+                return
+
+            with open(_librarian_log_path, "w", encoding="utf-8") as f:
+                f.write("[STATUS] Starting Smart Librarian...\n")
+
+            script = str(VIEWER_DIR.parent / "processor" / "librarian.py")
+            cmd = [sys.executable, script, "--log", _librarian_log_path]
+            if do_tag:
+                cmd.append("--tag")
+            if do_summarize:
+                cmd.append("--summarize")
+            _librarian_proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                env={**os.environ, "PYTHONUTF8": "1"},
+            )
+
+        self._json_response(200, {"status": "started", "pid": _librarian_proc.pid,
+                                  "tag": do_tag, "summarize": do_summarize})
+
+    def _handle_librarian_stop(self):
+        global _librarian_proc
+        with _librarian_lock:
+            if _librarian_proc and _librarian_proc.poll() is None:
+                _librarian_proc.terminate()
+                self._json_response(200, {"status": "stopped"})
+            else:
+                self._json_response(200, {"status": "not_running"})
+
+    def _api_librarian_status(self):
+        with _librarian_lock:
+            running = _librarian_proc is not None and _librarian_proc.poll() is None
+        log_text = ""
+        try:
+            with open(_librarian_log_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            log_text = "".join(lines[-200:])  # last lines only
+        except FileNotFoundError:
+            pass
+        return {"running": running, "log": log_text}
+
+    # ── Smart search: "ask the archive" (RAG-lite over FTS) ──
+
+    @staticmethod
+    def _fts_query(text: str) -> str:
+        """Build a safe FTS5 MATCH query: OR of quoted word tokens."""
+        import re
+        terms = re.findall(r"\w+", text, flags=re.UNICODE)
+        return " OR ".join(f'"{t}"' for t in terms)
+
+    def _handle_ask(self):
+        length = int(self.headers.get("Content-Length", 0))
+        body = json.loads(self.rfile.read(length)) if length else {}
+        question = (body.get("question") or "").strip()
+        if not question:
+            self._json_response(400, {"error": "Empty question"})
+            return
+
+        # 1) Retrieve candidate chats via FTS (phase-1 RAG-lite).
+        sources, seen = [], set()
+        fts_q = self._fts_query(question)
+        if fts_q:
+            conn = get_db()
+            try:
+                rows = conn.execute("""
+                    SELECT m.conversation_id AS id, c.title AS title,
+                           snippet(messages_fts, 0, '[', ']', '…', 18) AS snippet
+                    FROM messages_fts
+                    JOIN messages m ON messages_fts.rowid = m.id
+                    JOIN conversations c ON m.conversation_id = c.id
+                    WHERE messages_fts MATCH ?
+                    ORDER BY rank LIMIT 12
+                """, (fts_q,)).fetchall()
+            except sqlite3.OperationalError:
+                rows = []
+            finally:
+                conn.close()
+            for r in rows:
+                if r["id"] in seen:
+                    continue
+                seen.add(r["id"])
+                sources.append({"id": r["id"], "title": r["title"], "snippet": r["snippet"]})
+                if len(sources) >= 6:
+                    break
+
+        # 2) Ask the LLM to answer over the excerpts — opt-in, fail fast, degrade clearly.
+        gateway = build_gateway()
+        if not gateway.available:
+            # Not configured at all → offer FTS results only.
+            self._json_response(200, {"enabled": False, "answer": None, "sources": sources})
+            return
+        if not sources:
+            self._json_response(200, {"enabled": True, "answer": None, "sources": []})
+            return
+        # Configured but the daemon isn't responding: fail fast (a short pre-flight,
+        # not minutes of retries) with an honest message — NOT a fake "API key" note.
+        if not gateway.reachable():
+            self._json_response(200, {
+                "enabled": True, "answer": None, "sources": sources,
+                "error": "model offline — is Ollama running? Start it, then ask again."})
+            return
+
+        context = "\n\n".join(
+            f"[{i + 1}] {s['title']}: {s['snippet']}" for i, s in enumerate(sources))
+        try:
+            answer = gateway.generate_text(
+                f"Question: {question}\n\nArchive excerpts:\n{context}\n\n"
+                "Answer the question using ONLY these excerpts and cite sources as [n]. "
+                "If the excerpts do not contain the answer, say so plainly.",
+                system="You are a librarian answering questions about the user's own chat archive.",
+            )
+            self._json_response(200, {"enabled": True, "answer": answer, "sources": sources})
+        except (LLMError, LLMUnavailable) as exc:
+            self._json_response(200, {"enabled": True, "answer": None,
+                                      "error": str(exc), "sources": sources})
+
     def _handle_api(self, path: str, params: dict):
         try:
             conn = get_db()
@@ -157,6 +307,8 @@ class VaultHandler(SimpleHTTPRequestHandler):
             }
         if path == "/api/scrape-status":
             return self._api_scrape_status()
+        if path == "/api/librarian/status":
+            return self._api_librarian_status()
         if path == "/api/stats":
             return self._api_stats(conn)
         if path == "/api/dashboard":
@@ -316,7 +468,7 @@ class VaultHandler(SimpleHTTPRequestHandler):
             # Search via FTS5
             rows = conn.execute("""
                 SELECT c.id, c.title, c.created_time, c.updated_time,
-                       c.message_count, c.canvas_count, c.source, a.email
+                       c.message_count, c.canvas_count, c.source, c.summary, a.email
                 FROM conversations c
                 JOIN accounts a ON c.account_id = a.id
                 WHERE c.id IN (
@@ -329,7 +481,7 @@ class VaultHandler(SimpleHTTPRequestHandler):
         elif account_id:
             rows = conn.execute("""
                 SELECT c.id, c.title, c.created_time, c.updated_time,
-                       c.message_count, c.canvas_count, c.source, a.email
+                       c.message_count, c.canvas_count, c.source, c.summary, a.email
                 FROM conversations c
                 JOIN accounts a ON c.account_id = a.id
                 WHERE c.account_id = ?
@@ -339,14 +491,31 @@ class VaultHandler(SimpleHTTPRequestHandler):
         else:
             rows = conn.execute("""
                 SELECT c.id, c.title, c.created_time, c.updated_time,
-                       c.message_count, c.canvas_count, c.source, a.email
+                       c.message_count, c.canvas_count, c.source, c.summary, a.email
                 FROM conversations c
                 JOIN accounts a ON c.account_id = a.id
                 ORDER BY c.updated_time DESC
                 LIMIT ? OFFSET ?
             """, (limit, offset)).fetchall()
 
-        return [dict(r) for r in rows]
+        result = [dict(r) for r in rows]
+        self._attach_tags(conn, result)
+        return result
+
+    def _attach_tags(self, conn, rows):
+        """Attach a `tags` list (sorted) to each conversation dict in `rows`."""
+        if not rows:
+            return
+        ids = [r["id"] for r in rows]
+        qmarks = ",".join("?" * len(ids))
+        tagmap: dict = {}
+        for r in conn.execute(
+            f"SELECT ct.conversation_id AS cid, t.name AS name "
+            f"FROM conversation_tags ct JOIN tags t ON t.id = ct.tag_id "
+            f"WHERE ct.conversation_id IN ({qmarks}) ORDER BY t.name", ids):
+            tagmap.setdefault(r["cid"], []).append(r["name"])
+        for r in rows:
+            r["tags"] = tagmap.get(r["id"], [])
 
     def _api_conversation(self, conn, conv_id: str):
         conv = conn.execute("""
@@ -368,8 +537,13 @@ class VaultHandler(SimpleHTTPRequestHandler):
             FROM canvas_artifacts WHERE conversation_id = ?
         """, (conv_id,)).fetchall()
 
+        conv_d = dict(conv)  # includes summary/summary_model/... via c.*
+        conv_d["tags"] = [r["name"] for r in conn.execute(
+            "SELECT t.name FROM conversation_tags ct JOIN tags t ON t.id = ct.tag_id "
+            "WHERE ct.conversation_id = ? ORDER BY t.name", (conv_id,))]
+
         return {
-            "conversation": dict(conv),
+            "conversation": conv_d,
             "messages": [dict(m) for m in messages],
             "canvas_artifacts": [dict(c) for c in canvas],
         }

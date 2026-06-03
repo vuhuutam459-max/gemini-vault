@@ -1,0 +1,74 @@
+name: Build desktop binaries
+
+# Builds a self-contained Gemini Vault executable for Windows, macOS and Linux.
+# - On every push/PR to main: build all three and upload them as artifacts (CI check).
+# - On a version tag (v1.2.3): also attach the binaries to a GitHub Release.
+#
+# Why CI for Mac/Linux? The maintainer develops on Windows; GitHub's hosted
+# runners give us native macOS and Linux machines to produce real native builds
+# (PyInstaller does NOT cross-compile — each OS must be built on its own runner).
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to create a Release on tags
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: GeminiVault-windows
+            binary: dist/GeminiVault.exe
+          - os: macos-latest
+            artifact: GeminiVault-macos
+            binary: dist/GeminiVault
+          - os: ubuntu-latest
+            artifact: GeminiVault-linux
+            binary: dist/GeminiVault
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyInstaller
+        run: python -m pip install --upgrade pip pyinstaller
+
+      - name: Run tests (offline, no network)
+        run: |
+          python processor/_test_llm_gateway.py
+          python processor/_test_llm_client.py
+          python processor/_test_librarian.py
+          python processor/_test_serve_librarian.py
+          python processor/_test_smart_api.py
+
+      - name: Build executable
+        run: python build/build_windows.py
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.binary }}
+          if-no-files-found: error
+
+      - name: Attach to Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.binary }}
+          fail_on_unmatched_files: true
