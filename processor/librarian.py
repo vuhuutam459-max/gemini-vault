@@ -1,8 +1,13 @@
 """Smart Librarian — auto-tagging and summarization for the Gemini Vault DB.
 
-Walks conversations that still need processing and, via the FreeLLMAPI
-gateway (see ``llm_client.py``), assigns concise topical tags and a short
-summary. Results are written back into the SQLite DB:
+Walks conversations that still need processing and, via an injected
+:class:`~processor.llm_gateway.LLMGateway`, assigns concise topical tags and a
+short summary. This module knows the DB and the prompts; it does NOT know which
+provider answers or how we reach it — that lives entirely behind the gateway
+interface (``generate_json`` / ``generate_text`` / ``available``). Swap Ollama
+for a cloud API by reconfiguring the gateway; nothing here changes.
+
+Results are written back into the SQLite DB:
 
   conversations.summary / summary_model / summarized_at   (summarization)
   tags(name) + conversation_tags(conversation_id, tag_id) (tagging)
@@ -35,10 +40,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 try:  # package vs. script execution
     from processor.parse_and_index import init_db, DB_PATH
-    from processor.llm_client import LLMClient, LLMError
+    from processor.llm_gateway import LLMGateway, build_gateway, LLMError, LLMUnavailable
 except ImportError:  # pragma: no cover
     from parse_and_index import init_db, DB_PATH
-    from llm_client import LLMClient, LLMError
+    from llm_gateway import LLMGateway, build_gateway, LLMError, LLMUnavailable
 
 # Keep requests cheap: cap the transcript we send (head + tail of the chat).
 MAX_TRANSCRIPT_CHARS = 6000
@@ -107,7 +112,7 @@ def upsert_tags(conn: sqlite3.Connection, conv_id: str, names) -> list[str]:
     return stored
 
 
-def tag_conversation(conn: sqlite3.Connection, client: LLMClient,
+def tag_conversation(conn: sqlite3.Connection, gateway: LLMGateway,
                      conv_id: str, title: str) -> list[str]:
     transcript = build_transcript(conn, conv_id)
     user = (
@@ -115,7 +120,7 @@ def tag_conversation(conn: sqlite3.Connection, client: LLMClient,
         f"Transcript:\n{transcript}\n\n"
         'Return JSON: {"tags": ["...", "..."]}'
     )
-    obj = client.complete_json(user, system=TAG_SYSTEM)
+    obj = gateway.generate_json(user, system=TAG_SYSTEM)
     names = obj.get("tags", []) if isinstance(obj, dict) else obj
     stored = upsert_tags(conn, conv_id, names)
     conn.execute("UPDATE conversations SET tagged_at = ? WHERE id = ?",
@@ -124,21 +129,21 @@ def tag_conversation(conn: sqlite3.Connection, client: LLMClient,
     return stored
 
 
-def summarize_conversation(conn: sqlite3.Connection, client: LLMClient,
+def summarize_conversation(conn: sqlite3.Connection, gateway: LLMGateway,
                            conv_id: str, title: str) -> str:
     transcript = build_transcript(conn, conv_id)
     user = f"Chat title: {title or '(untitled)'}\n\nTranscript:\n{transcript}"
-    summary = client.complete(user, system=SUMMARY_SYSTEM).strip()
+    summary = gateway.generate_text(user, system=SUMMARY_SYSTEM).strip()
     conn.execute(
         "UPDATE conversations SET summary = ?, summary_model = ?, summarized_at = ? "
         "WHERE id = ?",
-        (summary, client.model, _now_iso(), conv_id),
+        (summary, gateway.model, _now_iso(), conv_id),
     )
     conn.commit()
     return summary
 
 
-def tag_and_summarize_conversation(conn: sqlite3.Connection, client: LLMClient,
+def tag_and_summarize_conversation(conn: sqlite3.Connection, gateway: LLMGateway,
                                    conv_id: str, title: str) -> tuple[list[str], str]:
     """Generate tags AND a summary in a single LLM call, then persist both.
 
@@ -152,7 +157,7 @@ def tag_and_summarize_conversation(conn: sqlite3.Connection, client: LLMClient,
         f"Transcript:\n{transcript}\n\n"
         'Return JSON: {"tags": ["...", "..."], "summary": "..."}'
     )
-    obj = client.complete_json(user, system=TAG_AND_SUMMARY_SYSTEM)
+    obj = gateway.generate_json(user, system=TAG_AND_SUMMARY_SYSTEM)
     if not isinstance(obj, dict):
         raise LLMError(f"expected a JSON object with tags+summary, got {obj!r}")
     names = upsert_tags(conn, conv_id, obj.get("tags", []))
@@ -161,19 +166,23 @@ def tag_and_summarize_conversation(conn: sqlite3.Connection, client: LLMClient,
     conn.execute(
         "UPDATE conversations SET summary = ?, summary_model = ?, "
         "summarized_at = ?, tagged_at = ? WHERE id = ?",
-        (summary, client.model, now, now, conv_id),
+        (summary, gateway.model, now, now, conv_id),
     )
     conn.commit()
     return names, summary
 
 
-def run(conn: sqlite3.Connection, client: LLMClient, *,
+def run(conn: sqlite3.Connection, gateway: LLMGateway, *,
         do_tag: bool = True, do_summarize: bool = True,
         limit: int | None = None, log=print) -> dict:
-    """Process conversations needing tags and/or a summary. Returns counts."""
-    if not client.enabled:
-        log("[librarian] FreeLLMAPI key not configured — nothing to do. "
-            "Set FREELLMAPI_KEY or fill librarian_config.json.")
+    """Process conversations needing tags and/or a summary. Returns counts.
+
+    ``gateway`` is any object satisfying the :class:`LLMGateway` interface; this
+    function never assumes a particular provider or transport (DI).
+    """
+    if not gateway.available:
+        log("[librarian] No LLM provider available — nothing to do. "
+            "Start Ollama (ollama pull gemma3:4b) or set a key in librarian_config.json.")
         return {"tagged": 0, "summarized": 0, "errors": 0, "skipped_disabled": True}
 
     clauses = []
@@ -200,20 +209,20 @@ def run(conn: sqlite3.Connection, client: LLMClient, *,
         try:
             # Fast path: one request when a chat needs BOTH tags and a summary.
             if do_tag and do_summarize and tagged_at is None and summarized_at is None:
-                names, _ = tag_and_summarize_conversation(conn, client, conv_id, title)
+                names, _ = tag_and_summarize_conversation(conn, gateway, conv_id, title)
                 counts["tagged"] += 1
                 counts["summarized"] += 1
                 log(f"[{i}/{total}] tagged+summarized {label!r} -> {names}")
                 continue
             if do_tag and tagged_at is None:
-                names = tag_conversation(conn, client, conv_id, title)
+                names = tag_conversation(conn, gateway, conv_id, title)
                 counts["tagged"] += 1
                 log(f"[{i}/{total}] tagged   {label!r} -> {names}")
             if do_summarize and summarized_at is None:
-                summarize_conversation(conn, client, conv_id, title)
+                summarize_conversation(conn, gateway, conv_id, title)
                 counts["summarized"] += 1
                 log(f"[{i}/{total}] summarized {label!r}")
-        except LLMError as exc:
+        except (LLMError, LLMUnavailable) as exc:
             counts["errors"] += 1
             log(f"[{i}/{total}] ERROR on {label!r}: {exc}")
 
@@ -250,15 +259,21 @@ def main(argv=None):
         do_tag = do_summarize = True
 
     log = _make_logger(args.log)
-    client = LLMClient()
-    if not client.enabled:
-        log("[librarian] No API key configured; the Smart Librarian is opt-in. "
-            "Nothing was sent anywhere.")
-        return
 
+    # ── Application assembly from independent building blocks ──
+    # 1. Build the gateway: provider config (default = local Ollama) lives behind
+    #    build_gateway(); we don't know or care which model answers.
+    gateway = build_gateway()
+    # 2. Optional plugin: if nothing is wired up, do nothing — and crash nothing.
+    if not gateway.available:
+        log("[librarian] No LLM provider configured; the Smart Librarian is opt-in. "
+            "Start Ollama (ollama pull gemma3:4b) — nothing was sent anywhere.")
+        return
+    # 3. Open the database (the Librarian's own concern).
     conn = init_db(Path(args.db) if args.db else DB_PATH)
     try:
-        run(conn, client, do_tag=do_tag, do_summarize=do_summarize,
+        # 4. Inject the gateway into the Librarian and run.
+        run(conn, gateway, do_tag=do_tag, do_summarize=do_summarize,
             limit=args.limit, log=log)
     finally:
         conn.close()

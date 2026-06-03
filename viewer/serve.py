@@ -44,9 +44,11 @@ _librarian_lock = threading.Lock()
 _librarian_proc = None
 _librarian_log_path = str(VIEWER_DIR.parent / ".librarian_log.txt")
 
-# Smart Librarian LLM client (stdlib-only; safe to import even without a key).
+# Smart Librarian LLM gateway (stdlib-only; safe to import even without a provider).
+# The viewer depends only on the gateway *interface* — it never touches a concrete
+# client or provider, so AI is a clean optional plugin.
 sys.path.insert(0, str(VIEWER_DIR.parent / "processor"))
-from llm_client import LLMClient, LLMError  # noqa: E402
+from llm_gateway import build_gateway, LLMError, LLMUnavailable  # noqa: E402
 
 
 def get_db() -> sqlite3.Connection:
@@ -254,8 +256,8 @@ class VaultHandler(SimpleHTTPRequestHandler):
                     break
 
         # 2) Ask the LLM to answer over the excerpts — opt-in, degrades gracefully.
-        client = LLMClient()
-        if not client.enabled:
+        gateway = build_gateway()
+        if not gateway.available:
             self._json_response(200, {"enabled": False, "answer": None, "sources": sources})
             return
         if not sources:
@@ -265,14 +267,14 @@ class VaultHandler(SimpleHTTPRequestHandler):
         context = "\n\n".join(
             f"[{i + 1}] {s['title']}: {s['snippet']}" for i, s in enumerate(sources))
         try:
-            answer = client.complete(
+            answer = gateway.generate_text(
                 f"Question: {question}\n\nArchive excerpts:\n{context}\n\n"
                 "Answer the question using ONLY these excerpts and cite sources as [n]. "
                 "If the excerpts do not contain the answer, say so plainly.",
                 system="You are a librarian answering questions about the user's own chat archive.",
             )
             self._json_response(200, {"enabled": True, "answer": answer, "sources": sources})
-        except LLMError as exc:
+        except (LLMError, LLMUnavailable) as exc:
             self._json_response(200, {"enabled": True, "answer": None,
                                       "error": str(exc), "sources": sources})
 

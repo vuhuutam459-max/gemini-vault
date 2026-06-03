@@ -1,8 +1,10 @@
 """Offline tests for processor.librarian — no network, no tokens spent.
 
-A FakeClient stands in for the FreeLLMAPI gateway and counts its calls, so we
-can assert both correctness and idempotency (a second run must not call the
-LLM again). Run:  python processor/_test_librarian.py
+A FakeGateway stands in for the LLMGateway interface and counts its calls, so we
+can assert both correctness and idempotency (a second run must not call the LLM
+again). Because the Librarian depends only on the gateway *interface*, the fake
+needs no real client at all — that's the payoff of dependency injection.
+Run:  python processor/_test_librarian.py
 """
 
 import sys
@@ -15,26 +17,26 @@ from processor import parse_and_index as P
 from processor import librarian as Lib
 
 
-class FakeClient:
-    """Duck-typed stand-in for LLMClient. Records how many calls it received."""
+class FakeGateway:
+    """Duck-typed stand-in for the LLMGateway interface. Counts its calls."""
 
-    def __init__(self, enabled=True):
-        self._enabled = enabled
+    def __init__(self, available=True):
+        self._available = available
         self.model = "fake-model"
         self.tag_calls = 0
         self.summary_calls = 0
 
     @property
-    def enabled(self):
-        return self._enabled
+    def available(self):
+        return self._available
 
-    def complete_json(self, user, **kwargs):
+    def generate_json(self, prompt, *, system=None):
         # Combined tag+summary call returns both keys; dups/blanks on purpose.
         self.tag_calls += 1
         return {"tags": ["Python", "  python ", "AsyncIO", ""],
                 "summary": "  A short summary of the chat.  "}
 
-    def complete(self, user, **kwargs):
+    def generate_text(self, prompt, *, system=None):
         self.summary_calls += 1
         return "  A short summary of the chat.  "
 
@@ -79,14 +81,14 @@ def test_tag_and_summarize_then_idempotent():
         conn = P.init_db(Path(tmp) / "v.db")
         try:
             _seed(conn)
-            client = FakeClient()
+            gateway = FakeGateway()
 
-            counts = Lib.run(conn, client, do_tag=True, do_summarize=True, log=lambda *_: None)
+            counts = Lib.run(conn, gateway, do_tag=True, do_summarize=True, log=lambda *_: None)
             assert counts["tagged"] == 1 and counts["summarized"] == 1
 
             # Combined path: one LLM call covers both tags and summary.
-            assert client.tag_calls == 1 and client.summary_calls == 0, \
-                (client.tag_calls, client.summary_calls)
+            assert gateway.tag_calls == 1 and gateway.summary_calls == 0, \
+                (gateway.tag_calls, gateway.summary_calls)
 
             # tags normalized + de-duped: "Python"/" python " collapse to one
             names = sorted(r[0] for r in conn.execute(
@@ -102,10 +104,10 @@ def test_tag_and_summarize_then_idempotent():
             assert row[2] is not None and row[3] is not None    # timestamps set
 
             # Second run must skip everything — no further LLM calls.
-            before = (client.tag_calls, client.summary_calls)
-            counts2 = Lib.run(conn, client, do_tag=True, do_summarize=True, log=lambda *_: None)
+            before = (gateway.tag_calls, gateway.summary_calls)
+            counts2 = Lib.run(conn, gateway, do_tag=True, do_summarize=True, log=lambda *_: None)
             assert counts2["tagged"] == 0 and counts2["summarized"] == 0
-            assert (client.tag_calls, client.summary_calls) == before, "idempotency broken"
+            assert (gateway.tag_calls, gateway.summary_calls) == before, "idempotency broken"
         finally:
             conn.close()
 
@@ -115,7 +117,7 @@ def test_disabled_client_is_noop():
         conn = P.init_db(Path(tmp) / "v.db")
         try:
             _seed(conn)
-            counts = Lib.run(conn, FakeClient(enabled=False), log=lambda *_: None)
+            counts = Lib.run(conn, FakeGateway(available=False), log=lambda *_: None)
             assert counts.get("skipped_disabled") is True
             assert counts["tagged"] == 0 and counts["summarized"] == 0
         finally:
