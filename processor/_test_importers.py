@@ -1,4 +1,4 @@
-"""Unit test for the multi-source importers (ChatGPT / Claude → canonical)."""
+"""Unit test for the multi-source importers (ChatGPT / Claude -> canonical)."""
 import sys
 from pathlib import Path
 
@@ -55,7 +55,7 @@ assert len(conv["messages"]) == 2, "should linearize active thread only"
 assert conv["messages"][0]["role"] == "user"
 assert conv["messages"][1]["role"] == "model", "assistant must map to model"
 assert conv["messages"][1]["content"] == "Regenerated reply", "must follow current_node branch"
-assert conv["messages"][0]["timestamp"] == 1716620400000, "sec→ms conversion"
+assert conv["messages"][0]["timestamp"] == 1716620400000, "sec->ms conversion"
 assert conv["created_time"] == 1716620400000
 print("  ChatGPT: OK")
 
@@ -88,7 +88,7 @@ assert cconv["messages"][0]["role"] == "user", "human must map to user"
 assert cconv["messages"][1]["role"] == "model"
 assert cconv["messages"][1]["content"] == "Two particles share a state.", "content[] fallback"
 # 2024-05-25T07:00:00Z == 1716620400000 ms
-assert cconv["messages"][0]["timestamp"] == 1716620400000, "ISO→ms conversion"
+assert cconv["messages"][0]["timestamp"] == 1716620400000, "ISO->ms conversion"
 assert cconv["created_time"] == 1716620400000
 print("  Claude: OK")
 

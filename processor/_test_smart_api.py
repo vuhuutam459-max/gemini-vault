@@ -95,7 +95,7 @@ def main():
         assert ask2["enabled"] is True and ask2["answer"] is None, ask2
         assert "offline" in (ask2.get("error") or "").lower(), ask2
         assert any(s["id"] == "c1" for s in ask2["sources"]), ask2
-        print("  OK  /api/ask: configured-but-offline → honest error, FTS fallback")
+        print("  OK  /api/ask: configured-but-offline -> honest error, FTS fallback")
     finally:
         srv.shutdown()
         tmp.cleanup()
