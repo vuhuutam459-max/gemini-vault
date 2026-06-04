@@ -10,7 +10,12 @@ name: Build desktop binaries
 #
 # We build in one-DIR mode (a GeminiVault/ folder, not a single .exe): it starts
 # without temp self-extraction and avoids the onefile bootloader's failure on
-# non-ASCII paths. Each runner tars its folder into one archive for distribution.
+# non-ASCII paths.
+#
+# Packaging differs per OS:
+#   - Windows: compile a real Inno Setup installer (iscc is pre-installed on
+#     GitHub's windows-latest runners) -> installer\Output\GeminiVault-Setup.exe.
+#   - macOS/Linux: tar the one-dir folder into a single archive.
 
 on:
   push:
@@ -60,21 +65,48 @@ jobs:
       - name: Build app (one-dir)
         run: python build/build_windows.py
 
-      - name: Package app folder
+      # ── Windows: compile a real installer (Setup.exe) from the one-dir build ──
+      # iscc (Inno Setup) ships pre-installed on GitHub's windows-latest runners.
+      # It bundles dist\GeminiVault\* into installer\Output\GeminiVault-Setup.exe.
+      - name: Compile installer (Inno Setup, Windows)
+        if: runner.os == 'Windows'
+        run: iscc installer\gemini_vault.iss
+
+      # ── macOS/Linux: no installer toolchain, ship the one-dir folder as a tar ──
+      - name: Package app folder (macOS/Linux)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           cd dist
           tar -czf "../${{ matrix.artifact }}.tar.gz" GeminiVault
 
-      - name: Upload build artifact
+      # ── Upload CI artifacts (the real deliverable per OS) ──
+      - name: Upload installer (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: installer/Output/GeminiVault-Setup.exe
+          if-no-files-found: error
+
+      - name: Upload app folder (macOS/Linux)
+        if: runner.os != 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}.tar.gz
           if-no-files-found: error
 
-      - name: Attach to Release (tags only)
-        if: startsWith(github.ref, 'refs/tags/v')
+      # ── On version tags, attach the per-OS deliverable to the GitHub Release ──
+      - name: Attach installer to Release (Windows, tags)
+        if: runner.os == 'Windows' && startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installer/Output/GeminiVault-Setup.exe
+          fail_on_unmatched_files: true
+
+      - name: Attach app folder to Release (macOS/Linux, tags)
+        if: runner.os != 'Windows' && startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ matrix.artifact }}.tar.gz
