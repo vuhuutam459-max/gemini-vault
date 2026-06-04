@@ -70,7 +70,11 @@ jobs:
       # It bundles dist\GeminiVault\* into installer\Output\GeminiVault-Setup.exe.
       - name: Compile installer (Inno Setup, Windows)
         if: runner.os == 'Windows'
-        run: iscc installer\gemini_vault.iss
+        shell: bash
+        # Strip the leading "v" from the tag (v1.1.2 -> 1.1.2) for a clean installer
+        # version. Path uses a forward slash: under bash a backslash is an escape
+        # char and would mangle the filename. The .iss #ifndef keeps local builds OK.
+        run: iscc /dMyAppVersion=${GITHUB_REF_NAME#v} installer/gemini_vault.iss
 
       # ── macOS/Linux: no installer toolchain, ship the one-dir folder as a tar ──
       - name: Package app folder (macOS/Linux)

@@ -10,7 +10,11 @@
 ; delete the user's archive.
 
 #define MyAppName "Gemini Vault"
-#define MyAppVersion "1.1.0"
+; Version is injected from the git tag in CI via: iscc /dMyAppVersion=<tag> ...
+; The fallback below keeps manual local builds working without that flag.
+#ifndef MyAppVersion
+#define MyAppVersion "1.0.0"
+#endif
 #define MyAppPublisher "Gemini Vault"
 #define MyAppURL "https://github.com/vuhuutam459-max/gemini-vault"
 #define MyAppExeName "GeminiVault.exe"
