@@ -72,9 +72,11 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         # Strip the leading "v" from the tag (v1.1.2 -> 1.1.2) for a clean installer
-        # version. Path uses a forward slash: under bash a backslash is an escape
-        # char and would mangle the filename. The .iss #ifndef keeps local builds OK.
-        run: iscc /dMyAppVersion=${GITHUB_REF_NAME#v} installer/gemini_vault.iss
+        # version. The "//d" double slash stops Git Bash (MSYS) from converting the
+        # "/d" switch into a Windows path; iscc collapses it back to "/d". The .iss
+        # path uses a forward slash (a backslash would be a bash escape). #ifndef in
+        # the .iss keeps manual local builds working.
+        run: iscc //dMyAppVersion=${GITHUB_REF_NAME#v} installer/gemini_vault.iss
 
       # ── macOS/Linux: no installer toolchain, ship the one-dir folder as a tar ──
       - name: Package app folder (macOS/Linux)
