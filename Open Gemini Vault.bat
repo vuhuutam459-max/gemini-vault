@@ -13,14 +13,44 @@ rem    dependencies - pure Python standard library.
 rem  - Option 2: set up the optional live scraper, which installs
 rem    Playwright + BeautifulSoup and downloads Chromium (~170 MB).
 rem    Only people who want live scraping ever pay that cost.
+rem
+rem  The scraper is installed into the project's OWN virtual
+rem  environment (.venv). Installing into "whatever python is in
+rem  PATH" breaks as soon as several Pythons coexist (Microsoft
+rem  Store stub, conda, uv, ...): packages land in one interpreter
+rem  while the server starts from another, and the UI then reports
+rem  "Playwright is not installed or configured". The launcher
+rem  always prefers .venv when it exists, so the environment that
+rem  received the packages is the one that actually runs.
 rem ============================================================
 
-rem --- Find a Python launcher (python or py) ---
-set "PY="
-where python >nul 2>nul && set "PY=python"
-if not defined PY (
-    where py >nul 2>nul && set "PY=py"
+rem --- Find a real system Python (skipping the Microsoft Store stub) ---
+rem The Store puts a fake python.exe in PATH that only opens the store
+rem page, and "where python" happily finds it - so every candidate is
+rem TEST-RUN instead of merely located.
+set "SYS_PY="
+for %%P in (
+    "%LOCALAPPDATA%\Programs\Python\Python313\python.exe"
+    "%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
+    "%LOCALAPPDATA%\Programs\Python\Python311\python.exe"
+    "%LOCALAPPDATA%\Programs\Python\Python310\python.exe"
+    "C:\Program Files\Python313\python.exe"
+    "C:\Program Files\Python312\python.exe"
+    "C:\Program Files\Python311\python.exe"
+    "C:\Program Files\Python310\python.exe"
+) do (
+    if not defined SYS_PY if exist "%%~P" set "SYS_PY=%%~P"
 )
+if not defined SYS_PY (
+    python -c "import sys" >nul 2>nul && set "SYS_PY=python"
+)
+if not defined SYS_PY (
+    py -c "import sys" >nul 2>nul && set "SYS_PY=py"
+)
+
+rem --- Prefer the project's own environment when it exists ---
+set "PY=%SYS_PY%"
+if exist ".venv\Scripts\python.exe" set "PY=.venv\Scripts\python.exe"
 
 if not defined PY (
     echo [ERROR] Python was not found.
@@ -67,7 +97,7 @@ if not exist "gemini_vault.db" (
     echo First run detected - loading the bundled demo data so you have
     echo something to look at right away...
     echo.
-    %PY% processor\parse_and_index.py Source_Accounts\demo_export.json
+    "%PY%" processor\parse_and_index.py Source_Accounts\demo_export.json
     echo.
     echo Demo data loaded. To import your own chats, use Google Takeout
     echo or the live scraper - see README.md.
@@ -82,7 +112,7 @@ echo To stop, close this window or press Ctrl+C.
 echo ============================================
 echo.
 
-%PY% viewer\serve.py
+"%PY%" viewer\serve.py
 
 echo.
 echo Server stopped.
@@ -99,6 +129,7 @@ echo ============================================
 echo.
 echo This installs the optional dependencies needed to pull chats
 echo directly from gemini.google.com in a browser:
+echo   - a private virtual environment ^(.venv^) inside this folder
 echo   - Python packages from requirements.txt
 echo   - the Chromium browser for Playwright ^(~170 MB download^)
 echo.
@@ -109,8 +140,31 @@ set /p "ok=Continue with the download and install? [y/N]: "
 if /i not "%ok%"=="y" goto menu
 
 echo.
-echo [1/2] Installing Python packages...
-%PY% -m pip install -r requirements.txt
+echo [1/3] Preparing the project virtual environment ^(.venv^)...
+if not exist ".venv\Scripts\python.exe" (
+    if not defined SYS_PY (
+        echo.
+        echo [ERROR] A system Python 3.10+ is needed to create .venv, but none
+        echo was found. Install it from https://python.org and try again.
+        echo.
+        pause
+        goto menu
+    )
+    "%SYS_PY%" -m venv .venv
+)
+if not exist ".venv\Scripts\python.exe" (
+    echo.
+    echo [ERROR] Could not create the virtual environment. Make sure this
+    echo folder is writable, then try again.
+    echo.
+    pause
+    goto menu
+)
+set "PY=.venv\Scripts\python.exe"
+
+echo.
+echo [2/3] Installing Python packages into .venv...
+"%PY%" -m pip install --disable-pip-version-check -r requirements.txt
 if errorlevel 1 (
     echo.
     echo [ERROR] Package installation failed. Check your internet connection
@@ -121,8 +175,8 @@ if errorlevel 1 (
 )
 
 echo.
-echo [2/2] Installing the Chromium browser for Playwright...
-%PY% -m playwright install chromium
+echo [3/3] Installing the Chromium browser for Playwright...
+"%PY%" -m playwright install chromium
 if errorlevel 1 (
     echo.
     echo [ERROR] Chromium installation failed. Check your internet connection
@@ -137,8 +191,9 @@ echo ============================================
 echo   Setup complete.
 echo ============================================
 echo.
-echo You can now scrape your chats, for example:
-echo   %PY% processor\scrape_gemini_url.py --list-all --account you@gmail.com
+echo The scraper now lives in its own .venv - the launcher will pick it
+echo up automatically from now on. You can scrape from the UI, or run:
+echo   "%PY%" processor\scrape_gemini_url.py --list-all --account you@gmail.com
 echo.
 echo See README.md for all scraper options.
 echo.

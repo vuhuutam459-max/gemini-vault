@@ -4,27 +4,31 @@ setlocal enabledelayedexpansion
 title Gemini Vault - launcher
 
 REM ============================================================
-REM  Gemini Vault - one-click launcher
-REM  Starts the Smart Librarian gateway (FreeLLMAPI) and the
-REM  local viewer; the viewer opens itself in your browser.
-REM  Double-click this file to run everything.
+REM  Gemini Vault - one-click launcher (anti-fragile edition)
 REM
-REM  NOTE: this script works even when the project lives on a
-REM  network share (\\server\...). cmd.exe cannot use a UNC path
-REM  as the current directory, so we always call python / node
-REM  with ABSOLUTE paths instead of relying on the working dir.
+REM  Guarantees the viewer ALWAYS runs from the project's own
+REM  virtual environment (.venv), so "pip installed into one
+REM  Python, server started from another" can never happen again:
+REM    1. .venv missing  -> it is created and dependencies installed.
+REM    2. .venv damaged  -> dependencies are re-installed (self-heal).
+REM    3. PATH is NEVER trusted to pick the interpreter that runs
+REM       the server - only the absolute .venv path is used.
+REM
+REM  Also starts the Smart Librarian gateway (FreeLLMAPI) if present.
+REM
+REM  NOTE: works from a network share (\\server\...). cmd.exe cannot
+REM  use a UNC path as the current directory, so everything is
+REM  called with ABSOLUTE paths instead of relying on the working dir.
 REM ============================================================
 
 REM ---- Settings (edit only if you installed things elsewhere) ----
-REM  Folder where the FreeLLMAPI gateway was installed.
-REM  (On a network share npm symlinks break, so it lives on a local disk.)
 set "GATEWAY_DIR=C:\Users\Public\freellmapi"
-REM  Port the viewer listens on.
 set "VIEWER_PORT=8642"
 REM ----------------------------------------------------------------
 
 REM  %~dp0 = folder of THIS .bat (keeps the trailing backslash).
 set "HERE=%~dp0"
+set "VENV_PY=%HERE%.venv\Scripts\python.exe"
 
 echo.
 echo  ============================================
@@ -32,17 +36,59 @@ echo    Gemini Vault - launcher
 echo  ============================================
 echo.
 
-REM ---- Require Python (the viewer + Smart Librarian core) ----
-where python >nul 2>&1
-if errorlevel 1 (
-    echo  [X] Python was not found in PATH.
-    echo      Install Python 3.10+ from https://www.python.org/downloads/
-    echo      and tick "Add python.exe to PATH" during setup.
+REM ---- [1/3] Make sure the project .venv exists ----
+if exist "%VENV_PY%" goto venv_ok
+
+echo  [..] First run: creating the project virtual environment...
+set "SYS_PY="
+REM  Probe known real installs first; a PATH "python" may be the useless
+REM  Microsoft Store stub, so it is only a last resort and is test-run.
+for %%P in (
+    "%LOCALAPPDATA%\Programs\Python\Python313\python.exe"
+    "%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
+    "%LOCALAPPDATA%\Programs\Python\Python311\python.exe"
+    "C:\Program Files\Python313\python.exe"
+    "C:\Program Files\Python312\python.exe"
+    "C:\Program Files\Python311\python.exe"
+) do (
+    if not defined SYS_PY if exist "%%~P" set "SYS_PY=%%~P"
+)
+if not defined SYS_PY (
+    python -c "import sys" >nul 2>&1 && set "SYS_PY=python"
+)
+if not defined SYS_PY (
+    echo  [X] No working Python 3.10+ found on this PC.
+    echo      Install it from https://www.python.org/downloads/
+    echo      ^(tick "Add python.exe to PATH"^) and run this file again.
     echo.
     pause
     exit /b 1
 )
-echo  [OK] Python found.
+echo  [OK] Using "!SYS_PY!" to create .venv
+"!SYS_PY!" -m venv "%HERE%.venv"
+if not exist "%VENV_PY%" (
+    echo  [X] Failed to create the virtual environment.
+    echo.
+    pause
+    exit /b 1
+)
+
+:venv_ok
+REM ---- [2/3] Self-heal: scraper deps must import from THIS .venv ----
+"%VENV_PY%" -c "import playwright" >nul 2>&1
+if errorlevel 1 (
+    echo  [..] Installing dependencies into .venv ^(one-time, ~1 min^)...
+    "%VENV_PY%" -m pip install --disable-pip-version-check -r "%HERE%requirements.txt"
+    if errorlevel 1 (
+        echo  [X] pip install failed - check the internet connection and rerun.
+        echo.
+        pause
+        exit /b 1
+    )
+    echo  [..] Installing the Chromium browser for Playwright...
+    "%VENV_PY%" -m playwright install chromium
+)
+echo  [OK] Python environment: %VENV_PY%
 
 REM ---- Start the gateway (optional - the Smart Librarian engine) ----
 if exist "%GATEWAY_DIR%\server\dist\index.js" (
@@ -62,11 +108,9 @@ if exist "%GATEWAY_DIR%\server\dist\index.js" (
     echo      you install the gateway. See README ^> Smart Librarian.
 )
 
-REM ---- Start the viewer ----
-REM  Call python with the ABSOLUTE path to serve.py so it does not matter
-REM  that cmd's working dir may be C:\Windows on a UNC share.
+REM ---- [3/3] Start the viewer from the .venv interpreter ----
 echo  [OK] Starting viewer  ^( http://localhost:%VIEWER_PORT% ^)
-start "Gemini Vault - Viewer" cmd /k python "%HERE%viewer\serve.py" --port %VIEWER_PORT%
+start "Gemini Vault - Viewer" cmd /k ""%VENV_PY%" "%HERE%viewer\serve.py" --port %VIEWER_PORT%"
 
 echo.
 echo  Two windows just opened: Gateway and Viewer.
