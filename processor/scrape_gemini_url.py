@@ -538,16 +538,45 @@ def main():
     parser.add_argument("--log", help="Path to log file for progress output")
 
     args = parser.parse_args()
+    log = Logger(args.log)
 
-    if args.list_all:
-        scrape_all(args.account, headed=not args.headless, log_file=args.log)
-    elif args.url:
-        scrape_url(args.url, args.account, headed=not args.headless, log_file=args.log)
-    else:
-        print("Usage:")
-        print('  python scrape_gemini_url.py "https://gemini.google.com/app/CHAT_ID"')
-        print('  python scrape_gemini_url.py --list-all')
-        print('  python scrape_gemini_url.py --list-all --log progress.txt')
+    # Surface a missing browser as a real, log-visible [ERROR] (the bare
+    # ensure_playwright() only prints to stdout, which the viewer discards).
+    if not HAS_PLAYWRIGHT:
+        log("[ERROR] Playwright is not installed or configured.")
+        log("    pip install playwright")
+        log("    playwright install chromium")
+        sys.exit(1)
+
+    # Anti-freeze guarantee: ANY uncaught failure (browser crash, locked
+    # profile, login timeout, etc.) must leave a terminal [ERROR] marker in the
+    # log so the viewer's poll loop ends with "failed" instead of hanging on a
+    # process that never wrote [DONE]/[ERROR].
+    try:
+        if args.list_all:
+            scrape_all(args.account, headed=not args.headless, log_file=args.log)
+        elif args.url:
+            scrape_url(args.url, args.account, headed=not args.headless, log_file=args.log)
+        else:
+            print("Usage:")
+            print('  python scrape_gemini_url.py "https://gemini.google.com/app/CHAT_ID"')
+            print('  python scrape_gemini_url.py --list-all')
+            print('  python scrape_gemini_url.py --list-all --log progress.txt')
+    except KeyboardInterrupt:
+        log("[ERROR] Cancelled.")
+        sys.exit(130)
+    except Exception as e:
+        # Playwright is installed but the Chromium *binary* was never downloaded
+        # (a separate ~170 MB step). Its raw error is cryptic, so translate the
+        # known signatures into one actionable line.
+        msg = str(e)
+        if "Executable doesn't exist" in msg or "playwright install" in msg.lower():
+            log("[ERROR] Chromium browser is not installed (Playwright module is "
+                "present, but the browser was never downloaded).")
+            log("    Run once in a terminal:  playwright install chromium")
+        else:
+            log(f"[ERROR] {type(e).__name__}: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

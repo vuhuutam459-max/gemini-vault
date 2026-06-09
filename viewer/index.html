@@ -1951,7 +1951,14 @@
         const data = await resp.json();
         if (data.error) {
           logEl.textContent += 'Error: ' + data.error + '\n';
-          if (data.error.includes('already running')) titleEl.textContent = 'Scraper already running';
+          if (data.error.includes('already running')) {
+            // A genuinely live run (backend self-heals stale state): attach the
+            // poller so the panel shows live progress and recovers on finish,
+            // instead of dead-ending on a frozen "already running" message.
+            titleEl.textContent = 'Scraper already running';
+            if (scrapePolling) clearInterval(scrapePolling);
+            scrapePolling = setInterval(pollScrapeStatus, 2000);
+          }
           return;
         }
         logEl.textContent += 'Scraper started (PID ' + data.pid + ')\n';

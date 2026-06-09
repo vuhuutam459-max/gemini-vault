@@ -28,7 +28,7 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-__version__ = "1.1.0"
+__version__ = "1.1.4"
 
 VIEWER_DIR = Path(__file__).resolve().parent
 DB_PATH = VIEWER_DIR.parent / "gemini_vault.db"
@@ -101,6 +101,12 @@ class VaultHandler(SimpleHTTPRequestHandler):
             self._json_response(400, {"error": "Invalid Gemini URL"})
             return
 
+        # Same pre-flight as scrape-all: report a missing browser plainly up front.
+        missing = self._playwright_missing()
+        if missing:
+            self._json_response(503, {"error": missing})
+            return
+
         try:
             script = str(VIEWER_DIR.parent / "processor" / "scrape_gemini_url.py")
             result = subprocess.run(
@@ -119,48 +125,89 @@ class VaultHandler(SimpleHTTPRequestHandler):
         except Exception as e:
             self._json_response(500, {"error": str(e)})
 
+    @staticmethod
+    def _playwright_missing():
+        """Return a human-readable reason if the scraper can't run (Playwright
+        module absent), else ''. Cheap import-spec probe in the server's own
+        interpreter — the scraper child is spawned with the same sys.executable,
+        so whatever we can import here is what it can import too."""
+        import importlib.util
+        if importlib.util.find_spec("playwright") is None:
+            return ("Playwright is not installed or configured. "
+                    "Install it from a terminal:\n"
+                    "    pip install playwright\n"
+                    "    playwright install chromium")
+        return ""
+
     def _handle_scrape_all(self):
         global _scraper_proc
         with _scraper_lock:
-            if _scraper_proc and _scraper_proc.poll() is None:
+            # Self-heal: only block when a PREVIOUS run is genuinely still alive.
+            # A crashed/finished child (poll() is not None) must never wedge the
+            # button on a stale "already running" — clear the slot and continue.
+            if _scraper_proc is not None and _scraper_proc.poll() is None:
                 self._json_response(409, {"error": "Scraper already running"})
                 return
+            _scraper_proc = None
 
             length = int(self.headers.get("Content-Length", 0))
             body = json.loads(self.rfile.read(length)) if length else {}
             account = body.get("account") or self._first_account_email() or "default@gmail.com"
 
-            with open(_scraper_log_path, "w", encoding="utf-8") as f:
-                f.write("[STATUS] Starting scraper...\n")
+            # Pre-flight: fail LOUDLY here if Playwright is missing instead of
+            # spawning a child that dies silently into a log nobody can read.
+            missing = self._playwright_missing()
+            if missing:
+                with open(_scraper_log_path, "w", encoding="utf-8") as f:
+                    f.write("[ERROR] " + missing + "\n")
+                self._json_response(503, {"error": missing})
+                return
 
-            script = str(VIEWER_DIR.parent / "processor" / "scrape_gemini_url.py")
-            _scraper_proc = subprocess.Popen(
-                [sys.executable, script, "--list-all",
-                 "--account", account, "--log", _scraper_log_path],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                env={**os.environ, "PYTHONUTF8": "1"},
-            )
+            try:
+                with open(_scraper_log_path, "w", encoding="utf-8") as f:
+                    f.write("[STATUS] Starting scraper...\n")
+
+                script = str(VIEWER_DIR.parent / "processor" / "scrape_gemini_url.py")
+                _scraper_proc = subprocess.Popen(
+                    [sys.executable, script, "--list-all",
+                     "--account", account, "--log", _scraper_log_path],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    env={**os.environ, "PYTHONUTF8": "1"},
+                )
+            except Exception as e:
+                # Spawn itself failed (bad interpreter path, OS error, ...).
+                # GUARANTEE: reset state + answer with JSON so the button frees up.
+                _scraper_proc = None
+                with open(_scraper_log_path, "w", encoding="utf-8") as f:
+                    f.write(f"[ERROR] Could not start scraper: {e}\n")
+                self._json_response(500, {"error": f"Could not start scraper: {e}"})
+                return
 
         self._json_response(200, {"status": "started", "pid": _scraper_proc.pid})
 
     def _handle_scrape_stop(self):
         global _scraper_proc
         with _scraper_lock:
-            if _scraper_proc and _scraper_proc.poll() is None:
+            if _scraper_proc is not None and _scraper_proc.poll() is None:
                 _scraper_proc.terminate()
                 self._json_response(200, {"status": "stopped"})
             else:
                 self._json_response(200, {"status": "not_running"})
+            # Either way, drop the reference so the slot is free for the next run.
+            _scraper_proc = None
 
     # ── Smart Librarian (auto-tag / summarize) — same subprocess pattern ──
 
     def _handle_librarian_run(self):
         global _librarian_proc
         with _librarian_lock:
-            if _librarian_proc and _librarian_proc.poll() is None:
+            # Self-heal, mirroring the scraper: a finished/crashed child must
+            # never leave a stale "already running" wedged on the button.
+            if _librarian_proc is not None and _librarian_proc.poll() is None:
                 self._json_response(409, {"error": "Librarian already running"})
                 return
+            _librarian_proc = None
 
             length = int(self.headers.get("Content-Length", 0))
             body = json.loads(self.rfile.read(length)) if length else {}
@@ -171,21 +218,29 @@ class VaultHandler(SimpleHTTPRequestHandler):
                 self._json_response(400, {"error": "Enable at least one of tag/summarize"})
                 return
 
-            with open(_librarian_log_path, "w", encoding="utf-8") as f:
-                f.write("[STATUS] Starting Smart Librarian...\n")
+            try:
+                with open(_librarian_log_path, "w", encoding="utf-8") as f:
+                    f.write("[STATUS] Starting Smart Librarian...\n")
 
-            script = str(VIEWER_DIR.parent / "processor" / "librarian.py")
-            cmd = [sys.executable, script, "--log", _librarian_log_path]
-            if do_tag:
-                cmd.append("--tag")
-            if do_summarize:
-                cmd.append("--summarize")
-            _librarian_proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                env={**os.environ, "PYTHONUTF8": "1"},
-            )
+                script = str(VIEWER_DIR.parent / "processor" / "librarian.py")
+                cmd = [sys.executable, script, "--log", _librarian_log_path]
+                if do_tag:
+                    cmd.append("--tag")
+                if do_summarize:
+                    cmd.append("--summarize")
+                _librarian_proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    env={**os.environ, "PYTHONUTF8": "1"},
+                )
+            except Exception as e:
+                # GUARANTEE: reset state + JSON error so the button frees up.
+                _librarian_proc = None
+                with open(_librarian_log_path, "w", encoding="utf-8") as f:
+                    f.write(f"[ERROR] Could not start Librarian: {e}\n")
+                self._json_response(500, {"error": f"Could not start Librarian: {e}"})
+                return
 
         self._json_response(200, {"status": "started", "pid": _librarian_proc.pid,
                                   "tag": do_tag, "summarize": do_summarize})

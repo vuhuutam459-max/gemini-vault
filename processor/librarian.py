@@ -276,13 +276,21 @@ def main(argv=None):
             "Start it (e.g. `ollama serve`) and re-run. Nothing was sent anywhere.")
         return
     # 3. Open the database (the Librarian's own concern).
-    conn = init_db(Path(args.db) if args.db else DB_PATH)
+    conn = None
     try:
+        conn = init_db(Path(args.db) if args.db else DB_PATH)
         # 4. Inject the gateway into the Librarian and run.
         run(conn, gateway, do_tag=do_tag, do_summarize=do_summarize,
             limit=args.limit, log=log)
+    except Exception as e:
+        # Anti-freeze: guarantee a terminal [ERROR] marker in the log so the
+        # viewer's status loop ends with "failed" instead of waiting forever on
+        # a process that crashed without writing [DONE]/[ERROR].
+        log(f"[ERROR] {type(e).__name__}: {e}")
+        raise
     finally:
-        conn.close()
+        if conn is not None:
+            conn.close()
 
 
 if __name__ == "__main__":
