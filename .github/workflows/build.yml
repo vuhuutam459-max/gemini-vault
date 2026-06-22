@@ -1,6 +1,6 @@
 name: Build desktop binaries
 
-# Builds a self-contained Gemini Vault app for Windows, macOS and Linux.
+# Builds a self-contained Chatrove app for Windows, macOS and Linux.
 # - On every push/PR to main: build all three and upload them as artifacts (CI check).
 # - On a version tag (v1.2.3): also attach the packaged apps to a GitHub Release.
 #

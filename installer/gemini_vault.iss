@@ -1,4 +1,4 @@
-; Inno Setup script for Gemini Vault (Windows installer)
+; Inno Setup script for Chatrove (Windows installer)
 ; ---------------------------------------------------------------------------
 ; Build the app first:   python build\build_windows.py   (produces dist\GeminiVault\)
 ; Then compile this script with Inno Setup (https://jrsoftware.org/isinfo.php):
@@ -9,14 +9,14 @@
 ; install folder under Program Files can stay read-only and uninstalling does NOT
 ; delete the user's archive.
 
-#define MyAppName "Gemini Vault"
+#define MyAppName "Chatrove"
 ; Version is injected from the git tag in CI via: iscc /dMyAppVersion=<tag> ...
 ; The fallback below keeps manual local builds working without that flag.
 #ifndef MyAppVersion
 #define MyAppVersion "1.0.0"
 #endif
-#define MyAppPublisher "Gemini Vault"
-#define MyAppURL "https://github.com/vuhuutam459-max/gemini-vault"
+#define MyAppPublisher "Chatrove"
+#define MyAppURL "https://github.com/vuhuutam459-max/chatrove"
 #define MyAppExeName "GeminiVault.exe"
 
 [Setup]
@@ -26,8 +26,8 @@ AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
-DefaultDirName={autopf}\Gemini Vault
-DefaultGroupName=Gemini Vault
+DefaultDirName={autopf}\Chatrove
+DefaultGroupName=Chatrove
 DisableProgramGroupPage=yes
 OutputDir=Output
 OutputBaseFilename=GeminiVault-Setup
@@ -56,7 +56,7 @@ Name: "custom";  Description: "Custom installation"; Flags: iscustom
 
 ; ── The checkboxes the user sees on the 'Select Components' page ──
 [Components]
-Name: "core"; Description: "Gemini Vault viewer — your chat archive"; \
+Name: "core"; Description: "Chatrove viewer — your chat archive"; \
     Types: full compact custom; Flags: fixed
 Name: "ai";   Description: "Smart Librarian — local AI: auto-tags, summaries & ask-the-archive (needs Ollama)"; \
     Types: full
@@ -76,14 +76,14 @@ Source: "..\LICENSE";   DestDir: "{app}"; Components: core; Flags: ignoreversion
 Source: "..\backup.bat"; DestDir: "{app}"; Components: tools; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\Gemini Vault";           Filename: "{app}\{#MyAppExeName}"; Components: core
-Name: "{group}\Backup Gemini Vault";    Filename: "{app}\backup.bat";      Components: tools
-Name: "{group}\Uninstall Gemini Vault"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\Gemini Vault";     Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; Components: core
+Name: "{group}\Chatrove";           Filename: "{app}\{#MyAppExeName}"; Components: core
+Name: "{group}\Backup Chatrove";    Filename: "{app}\backup.bat";      Components: tools
+Name: "{group}\Uninstall Chatrove"; Filename: "{uninstallexe}"
+Name: "{autodesktop}\Chatrove";     Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; Components: core
 
 [Run]
 ; Offer to launch right after install.
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,Gemini Vault}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,Chatrove}"; Flags: nowait postinstall skipifsilent
 
 [Code]
 { When the user does NOT select the AI module, drop a config flag so the app

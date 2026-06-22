@@ -1,7 +1,7 @@
 """
 serve.py
 ========
-Minimal HTTP server for the Gemini Vault Viewer.
+Minimal HTTP server for the Chatrove Viewer.
 
 Serves static files (HTML/JS/CSS) + a JSON API backed by SQLite.
 Usage:
@@ -766,7 +766,7 @@ class VaultHandler(SimpleHTTPRequestHandler):
 
             buf = io.BytesIO()
             index = [
-                "# Gemini Vault — export",
+                "# Chatrove — export",
                 "",
                 f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
                 f"Chats: {len(convs)}",
@@ -822,7 +822,7 @@ class VaultHandler(SimpleHTTPRequestHandler):
     def _handle_export_json(self, params):
         """Exports data in the same JSON format that parse_and_index accepts.
 
-        Lets you migrate the archive into another Gemini Vault WITHOUT data loss.
+        Lets you migrate the archive into another Chatrove WITHOUT data loss.
         If ?account_id=N is given, a single account is exported.
         """
         account_id = params.get("account_id", [None])[0]
@@ -925,7 +925,7 @@ class VaultHandler(SimpleHTTPRequestHandler):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Gemini Vault Viewer — local viewer for Gemini chats",
+        description="Chatrove Viewer — local viewer for Gemini chats",
     )
     parser.add_argument("--port", type=int, default=DEFAULT_PORT,
                         help=f"HTTP server port (default {DEFAULT_PORT})")
@@ -934,7 +934,7 @@ def main():
     parser.add_argument("--no-open", action="store_true",
                         help="do not open the browser automatically")
     parser.add_argument("--version", action="version",
-                        version=f"Gemini Vault Viewer {__version__}")
+                        version=f"Chatrove Viewer {__version__}")
     args = parser.parse_args()
 
     if not DB_PATH.exists():
@@ -951,14 +951,14 @@ def main():
     except OSError as e:
         # Port is busy: the server is probably already running in another window.
         print(f"[!] Could not bind port {args.port}: {e}")
-        print(f"    Gemini Vault may already be running at {url}")
+        print(f"    Chatrove may already be running at {url}")
         print(f"    If the UI behaves oddly, close the old server window")
         print(f"    and restart, or pick another port: --port {args.port + 1}")
         if not args.no_open:
             webbrowser.open(url)
         return
 
-    print(f"Gemini Vault Viewer {__version__}: {url}")
+    print(f"Chatrove Viewer {__version__}: {url}")
     print(f"DB: {DB_PATH}")
     print("Ctrl+C to stop.\n")
 

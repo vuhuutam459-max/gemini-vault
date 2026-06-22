@@ -214,7 +214,7 @@ def _wrap(conversations: list[dict], source: str, account: str) -> dict:
 
 def detect_source(raw) -> str:
     """Best-effort detection of which provider an export came from."""
-    # Gemini Vault canonical files: dict with these two keys.
+    # Chatrove canonical files: dict with these two keys.
     if isinstance(raw, dict) and "conversations" in raw and "export_metadata" in raw:
         return raw.get("export_metadata", {}).get("source", "gemini")
     # ChatGPT / Claude exports are top-level lists of conversation objects.
@@ -231,7 +231,7 @@ def detect_source(raw) -> str:
 def normalize(raw, account: str | None = None, source: str | None = None) -> dict:
     """Return canonical export data regardless of the originating provider.
 
-    A file already in Gemini-Vault canonical form is returned unchanged.
+    A file already in Chatrove canonical form is returned unchanged.
     """
     src = source or detect_source(raw)
     if src == "chatgpt":

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gemini Vault — Viewer</title>
+  <title>Chatrove — Viewer</title>
 
   <!-- Tailwind CSS (CDN -> local fallback) -->
   <script src="lib/tailwind.js" onerror="this.src='https://cdn.tailwindcss.com'"></script>
@@ -549,7 +549,7 @@
   <!-- Sidebar -->
   <div id="sidebar">
     <div id="sidebar-header">
-      <h1>Gemini Vault</h1>
+      <h1>Chatrove</h1>
       <select id="account-select">
         <option value="" data-i18n="all_accounts">All accounts</option>
       </select>
@@ -592,7 +592,7 @@
   <!-- Main -->
   <div id="main">
     <div id="main-header">
-      <div id="conv-title">Gemini Vault</div>
+      <div id="conv-title">Chatrove</div>
       <button id="lang-toggle" onclick="toggleLang()">RU</button>
       <button id="theme-toggle" onclick="toggleTheme()" data-i18n-title="theme_title" title="Neon mode">NEON</button>
       <button id="dash-btn" onclick="openDashboard()" data-i18n-title="dashboard_title"
@@ -632,7 +632,7 @@
     <div id="messages-container">
       <div id="welcome">
         <div style="font-size:48px;margin-bottom:16px">✦</div>
-        <h2>Gemini Vault</h2>
+        <h2>Chatrove</h2>
         <p data-i18n="welcome_sub">Pick a chat on the left or use search (Ctrl+K)</p>
         <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
           <button onclick="startScrapeAll()" class="page-btn"
@@ -720,7 +720,7 @@
 
   <script>
     // ═══════════════════════════════════════════════
-    //  Gemini Vault Viewer — app.js (inline)
+    //  Chatrove Viewer — app.js (inline)
     // ═══════════════════════════════════════════════
 
     // ── i18n: English (default) + Russian, toggled in the UI ──
@@ -736,7 +736,7 @@
         export_btn: '⤓ Export ▾', exp_current: 'Current chat',
         exp_md: '📄 Markdown (.md)', exp_html: '🌐 HTML (standalone)', exp_print: '🖨 Print / PDF',
         exp_vault: 'Whole vault', exp_big_md: '📄 Single big .md', exp_zip: '🗜 ZIP (per file)',
-        exp_json: '📦 JSON archive (migrate)', exp_json_title: 'Imports into another Gemini Vault 1:1',
+        exp_json: '📦 JSON archive (migrate)', exp_json_title: 'Imports into another Chatrove 1:1',
         search_ph: 'Global search across all chats (Ctrl+K)...',
         import_url_ph: 'Paste a Gemini link...', import_btn: 'Import',
         welcome_sub: 'Pick a chat on the left or use search (Ctrl+K)',
@@ -780,7 +780,7 @@
         scrape_cli_hint: u => `To import by link, run in a terminal:\n\npython processor/scrape_gemini_url.py "${u}"`,
         scrape_cli_full: u => `To import by link, run in a terminal:\n\npython processor/scrape_gemini_url.py "${u}"\n\nPlaywright opens a browser, sign in and the data is saved to the database.`,
         invalid_link: 'Paste a chat or Canvas link from gemini.google.com',
-        big_md_title: 'Gemini Vault — Full export', big_md_date: 'Date', big_md_chats: 'Chats', big_md_toc: 'Table of contents',
+        big_md_title: 'Chatrove — Full export', big_md_date: 'Date', big_md_chats: 'Chats', big_md_toc: 'Table of contents',
         export_doc_meta: 'Account',
         ask_ph: 'Ask the archive…', ask_btn: 'Ask',
         ask_thinking: 'Searching the archive…',
@@ -800,7 +800,7 @@
         export_btn: '⤓ Экспорт ▾', exp_current: 'Текущий чат',
         exp_md: '📄 Markdown (.md)', exp_html: '🌐 HTML (автономный)', exp_print: '🖨 Печать / PDF',
         exp_vault: 'Весь vault', exp_big_md: '📄 Один большой .md', exp_zip: '🗜 ZIP (по файлам)',
-        exp_json: '📦 JSON-архив (перенос)', exp_json_title: 'Импортируется в другой Gemini Vault 1-в-1',
+        exp_json: '📦 JSON-архив (перенос)', exp_json_title: 'Импортируется в другой Chatrove 1-в-1',
         search_ph: 'Глобальный поиск по всем чатам (Ctrl+K)...',
         import_url_ph: 'Вставь ссылку Gemini...', import_btn: 'Импорт',
         welcome_sub: 'Выберите чат слева или используйте поиск (Ctrl+K)',
@@ -844,7 +844,7 @@
         scrape_cli_hint: u => `Для импорта по ссылке запустите в терминале:\n\npython processor/scrape_gemini_url.py "${u}"`,
         scrape_cli_full: u => `Для импорта по ссылке запустите в терминале:\n\npython processor/scrape_gemini_url.py "${u}"\n\nPlaywright откроет браузер, залогиньтесь и данные сохранятся в базу.`,
         invalid_link: 'Вставьте ссылку на чат или Canvas из gemini.google.com',
-        big_md_title: 'Gemini Vault — Полный экспорт', big_md_date: 'Дата', big_md_chats: 'Чатов', big_md_toc: 'Оглавление',
+        big_md_title: 'Chatrove — Полный экспорт', big_md_date: 'Дата', big_md_chats: 'Чатов', big_md_toc: 'Оглавление',
         export_doc_meta: 'Аккаунт',
         ask_ph: 'Спросить архив…', ask_btn: 'Спросить',
         ask_thinking: 'Ищу по архиву…',
@@ -1793,7 +1793,7 @@
       const acc = document.getElementById('sched-account').value.trim() || 'you@gmail.com';
       const freq = document.getElementById('sched-freq').value;
       const time = document.getElementById('sched-time').value || '03:00';
-      const baseDir = (_sysInfo && _sysInfo.base_dir) || '<path to Gemini_Vault>';
+      const baseDir = (_sysInfo && _sysInfo.base_dir) || '<path to Chatrove>';
       const bat = baseDir + '\\backup.bat';
       const cmd = `schtasks /create /tn "GeminiVaultBackup" /sc ${freq} /st ${time} ` +
         `/tr "\\"${bat}\\" ${acc}" /f`;

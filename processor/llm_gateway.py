@@ -1,6 +1,6 @@
 """LLM Gateway — the *only* module that knows HOW we reach a language model.
 
-This is the dependency-injection seam for Gemini Vault's optional AI features
+This is the dependency-injection seam for Chatrove's optional AI features
 (the "Smart Librarian" and "Ask the archive"). Everything else — the Librarian,
 the viewer — depends on the small :class:`LLMGateway` interface, never on a
 concrete HTTP client or a particular provider. Swap Ollama for a cloud API by

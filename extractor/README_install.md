@@ -1,4 +1,4 @@
-# Gemini Vault Extractor — Guide
+# Chatrove Extractor — Guide
 
 ## Option 1: Tampermonkey (recommended)
 
@@ -13,7 +13,7 @@
 
 5. Go to https://gemini.google.com/
 
-6. A **Gemini Vault** panel appears in the bottom-right corner
+6. A **Chatrove** panel appears in the bottom-right corner
 
 7. Click **"Export all chats"**
 
@@ -37,11 +37,11 @@
 
 ## What to do with the JSON file
 
-1. Copy the file into the `Gemini_Vault/Source_Accounts/` folder
+1. Copy the file into the `Chatrove/Source_Accounts/` folder
 
 2. Run the processor:
    ```
-   cd Gemini_Vault
+   cd Chatrove
    python processor/parse_and_index.py
    ```
 
