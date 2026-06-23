@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         Gemini Vault Extractor
+// @name         Chatrove Extractor
 // @namespace    gemini-vault
 // @version      1.0.0
 // @description  Full export of all chats and Canvas artifacts from Google Gemini
-// @author       Gemini Vault
+// @author       Chatrove
 // @match        https://gemini.google.com/*
 // @grant        none
 // @run-at       document-idle
@@ -629,7 +629,7 @@
       log(`   File saved to your Downloads folder.`);
     } catch (err) {
       log(`\n❌ Critical error: ${err.message}`);
-      console.error("Gemini Vault error:", err);
+      console.error("Chatrove error:", err);
     } finally {
       state.isExtracting = false;
       updateUI("done");
@@ -868,7 +868,7 @@
       </style>
 
       <div id="gv-header">
-        <h3>Gemini Vault</h3>
+        <h3>Chatrove</h3>
         <span class="gv-close" id="gv-minimize" title="Minimize">─</span>
       </div>
       <div id="gv-buttons">
@@ -879,13 +879,13 @@
         <div id="gv-progress-bar"><div id="gv-progress-fill"></div></div>
         <div id="gv-progress-text"></div>
       </div>
-      <div id="gv-log">Gemini Vault v${CONFIG.VERSION}\nReady to export. Click the button above.\n</div>
+      <div id="gv-log">Chatrove v${CONFIG.VERSION}\nReady to export. Click the button above.\n</div>
     `;
 
     const minimizedBtn = document.createElement("div");
     minimizedBtn.id = "gv-minimized";
     minimizedBtn.textContent = "📦";
-    minimizedBtn.title = "Gemini Vault";
+    minimizedBtn.title = "Chatrove";
 
     document.body.appendChild(uiPanel);
     document.body.appendChild(minimizedBtn);
@@ -933,7 +933,7 @@
   }
 
   function log(msg) {
-    console.log("[Gemini Vault]", msg);
+    console.log("[Chatrove]", msg);
     if (logArea) {
       logArea.textContent += msg + "\n";
       logArea.scrollTop = logArea.scrollHeight;

@@ -1,7 +1,7 @@
 """
 export_obsidian.py
 ==================
-Convert Gemini Vault SQLite -> Obsidian Vault.
+Convert Chatrove SQLite -> Obsidian Vault.
 
 Each chat -> a separate .md file with YAML frontmatter.
 Canvas artifacts -> nested notes with [[wiki-links]].

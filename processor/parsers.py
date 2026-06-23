@@ -1,5 +1,5 @@
 """
-parsers.py — Gemini Vault edition
+parsers.py — Chatrove edition
 ==================================
 Adapted parsers from the Takeout Smart Extractor.
 All functions work in-memory (strings/dicts) and write no files.

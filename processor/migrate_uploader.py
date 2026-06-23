@@ -6,7 +6,7 @@ migrate_uploader.py — DEPRECATED / EXPERIMENTAL
 The recommended way to "migrate" to another account is the portable
 JSON archive: in the viewer click "⤓ Export → 📦 JSON archive (migrate)"
 (or GET /api/export-json). Such an archive imports into another
-Gemini Vault 1:1, WITHOUT losing the original texts and WITHOUT the risk
+Chatrove 1:1, WITHOUT losing the original texts and WITHOUT the risk
 of an account ban.
 
 This module does NOT transfer the conversation; it RE-SENDS your
@@ -329,7 +329,7 @@ def migrate_from_json(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Gemini Vault — Migrate chats to another account (EXPERIMENTAL)",
+        description="Chatrove — Migrate chats to another account (EXPERIMENTAL)",
         epilog="WARNING: This violates Google ToS and may result in account ban.",
     )
     parser.add_argument("--cookies", required=True, type=Path,
@@ -346,7 +346,7 @@ def main():
     args = parser.parse_args()
 
     print("=" * 60)
-    print("  GEMINI VAULT — ACCOUNT MIGRATION (EXPERIMENTAL)")
+    print("  CHATROVE — ACCOUNT MIGRATION (EXPERIMENTAL)")
     print("=" * 60)
     print()
     print("  [!] This feature violates Google Terms of Service.")

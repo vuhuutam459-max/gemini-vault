@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec for Gemini Vault — one self-contained executable.
+"""PyInstaller spec for Chatrove — one self-contained executable.
 
 Build it via the helper (recommended):   python build/build_windows.py
 …or directly:                            pyinstaller build/gemini_vault.spec
@@ -13,7 +13,7 @@ a per-user directory by desktop_app.py — never inside the read-only bundle.
 import os
 from pathlib import Path
 
-# SPECPATH is the dir containing this spec (…/Gemini_Vault/build) -> repo root is its parent.
+# SPECPATH is the dir containing this spec (…/Chatrove/build) -> repo root is its parent.
 ROOT = Path(SPECPATH).resolve().parent
 
 def _exists(*parts):

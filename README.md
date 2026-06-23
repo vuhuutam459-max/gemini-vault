@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="banner.jpg" alt="Gemini Vault" width="100%">
+  <img src="banner.jpg" alt="Chatrove" width="100%">
 </p>
 
-# Gemini Vault
+# Chatrove
 
 > Full local backup and offline viewer for your AI chats (Gemini, ChatGPT, Claude).
 
@@ -14,7 +14,7 @@ Keep all your AI conversations on your own machine, search them in milliseconds,
 read them offline (with LaTeX, code highlighting and Canvas), and export them
 anywhere. **All data is processed 100% locally — nothing is sent to any server.**
 
-There are **two ways** to use Gemini Vault. Pick the one you want — the first
+There are **two ways** to use Chatrove. Pick the one you want — the first
 needs nothing but Python:
 
 | | Mode | What you get | What you need |
@@ -34,13 +34,13 @@ This is all most people need: a quick, private, offline archive of your chats.
 
 ### Start it
 
-**Windows — the easy way:** double-click **`start.bat`** (or `Open Gemini Vault.bat`).
+**Windows — the easy way:** double-click **`start.bat`** (or `Open Chatrove.bat`).
 It starts the viewer and opens it in your browser.
 
 **Any OS — from a terminal:**
 
 ```bash
-cd Gemini_Vault
+cd Chatrove
 python viewer/serve.py
 ```
 
@@ -139,7 +139,7 @@ Open the viewer (`python viewer/serve.py`). You'll now see **tag chips** and an
 **AI summary** on each chat, a **tag filter** in the sidebar, and the
 **Ask the archive** bar at the top.
 
-**Defaults need no config** — Gemini Vault ships pointed at Ollama + `gemma3:4b`
+**Defaults need no config** — Chatrove ships pointed at Ollama + `gemma3:4b`
 out of the box. To use a different model or provider, create
 **`librarian_config.json`** in the project root (gitignored, so it never reaches
 the repo):
@@ -169,7 +169,7 @@ playwright install chromium
 python processor/scrape_gemini_url.py --list-all --account you@gmail.com
 ```
 
-On Windows, `Open Gemini Vault.bat` → **[2] Set up / update the live scraper**
+On Windows, `Open Chatrove.bat` → **[2] Set up / update the live scraper**
 installs these for you. There are also browser extractor scripts in `extractor/`.
 
 ## Moving to another machine or account
@@ -181,7 +181,7 @@ Canvas artifacts and dates carry over 1-to-1.
 ## Project structure
 
 ```
-Gemini_Vault/
+Chatrove/
 ├── start.bat               One-click launcher (Windows)
 ├── processor/
 │   ├── parse_and_index.py   JSON  -> SQLite + FTS5 (SHA256 dedup)
@@ -214,7 +214,7 @@ or share them is **your responsibility**. See the full [DISCLAIMER](DISCLAIMER.m
 
 - **Local AI engine (optional):** the Smart Librarian runs on
   **[Ollama](https://ollama.com)** with Google's open-weight **Gemma** models.
-  Gemini Vault talks to Ollama's OpenAI-compatible endpoint over plain HTTP and
+  Chatrove talks to Ollama's OpenAI-compatible endpoint over plain HTTP and
   bundles nothing.
 
 ## License

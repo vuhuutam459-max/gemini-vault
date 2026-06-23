@@ -1,4 +1,4 @@
-"""Build a standalone Gemini Vault .exe with PyInstaller.
+"""Build a standalone Chatrove .exe with PyInstaller.
 
 Usage:
     python build/build_windows.py            # build the one-file .exe
@@ -18,7 +18,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent          # …/Gemini_Vault
+ROOT = Path(__file__).resolve().parent.parent          # …/Chatrove
 SPEC = ROOT / "build" / "gemini_vault.spec"
 
 

@@ -4,7 +4,7 @@ FreeLLMAPI (https://github.com/tashfeenahmed/freellmapi) runs locally and
 exposes an OpenAI-compatible endpoint (default ``http://localhost:3001/v1``)
 behind a single ``freellmapi-...`` key. Because that endpoint is just
 HTTP+JSON, this client is implemented with the **standard library only**
-(``urllib``) to preserve Gemini Vault's zero-dependency core — no ``openai``
+(``urllib``) to preserve Chatrove's zero-dependency core — no ``openai``
 package is required.
 
 Configuration is read, in priority order:

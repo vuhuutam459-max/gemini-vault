@@ -1,6 +1,6 @@
 # Disclaimer & Responsibility
 
-**Read this before using Gemini Vault.**
+**Read this before using Chatrove.**
 
 This software is provided **"AS IS", without warranty of any kind**, express or
 implied, as stated in the [MIT LICENSE](LICENSE). It does what it says — but the
@@ -27,8 +27,8 @@ responsibility for *how you use it* is entirely yours.
 
 ## No liability
 
-To the maximum extent permitted by law, the authors and contributors of Gemini
-Vault are **not liable** for any:
+To the maximum extent permitted by law, the authors and contributors of Chatrove
+are **not liable** for any:
 
 - data loss or corruption,
 - account suspension, restriction, or other account issues,
@@ -42,5 +42,5 @@ or of the data it produces.
 
 The tool works. **The data, and whatever you choose to do with it, are on you.**
 
-By using Gemini Vault you acknowledge that you have read and accepted this
+By using Chatrove you acknowledge that you have read and accepted this
 disclaimer.

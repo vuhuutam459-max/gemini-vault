@@ -1,7 +1,7 @@
 """
 parse_and_index.py
 ==================
-Import Gemini Vault JSON dumps → SQLite + FTS5.
+Import Chatrove JSON dumps → SQLite + FTS5.
 
 Usage:
   python parse_and_index.py                    # all .json/.zip from Source_Accounts/
@@ -303,7 +303,7 @@ def process_export_file(conn: sqlite3.Connection, filepath: Path) -> dict:
     raw = _load_export_raw(filepath)
 
     # Normalize ChatGPT/Claude exports to canonical form. A file already in
-    # canonical (Gemini Vault) form is returned unchanged.
+    # canonical (Chatrove) form is returned unchanged.
     data = _normalize_export(raw)
 
     meta = data.get("export_metadata", {})
@@ -352,7 +352,7 @@ def generate_manifest(conn: sqlite3.Connection) -> dict:
 
 def print_stats(conn: sqlite3.Connection) -> None:
     m = generate_manifest(conn)
-    print("\n═══ Gemini Vault — Database statistics ═══")
+    print("\n═══ Chatrove — Database statistics ═══")
     print(f"  DB: {m['db_path']}")
     for a in m["accounts"]:
         print(f"  Account: {a['email']} (last export: {a['last_export']})")
@@ -393,7 +393,7 @@ def main():
         conn.close()
         return
 
-    print(f"Gemini Vault — Importing into {DB_PATH}")
+    print(f"Chatrove — Importing into {DB_PATH}")
     print(f"Files to process: {len(files)}\n")
 
     all_stats = []

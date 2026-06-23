@@ -1,4 +1,4 @@
-"""Smart Librarian — auto-tagging and summarization for the Gemini Vault DB.
+"""Smart Librarian — auto-tagging and summarization for the Chatrove DB.
 
 Walks conversations that still need processing and, via an injected
 :class:`~processor.llm_gateway.LLMGateway`, assigns concise topical tags and a

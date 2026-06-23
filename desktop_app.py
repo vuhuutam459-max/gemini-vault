@@ -1,4 +1,4 @@
-"""Desktop entry point for the packaged (PyInstaller) Gemini Vault app.
+"""Desktop entry point for the packaged (PyInstaller) Chatrove app.
 
 Running from source this is just a convenience launcher; frozen into an .exe it
 is the program's `main`. The tricky part of bundling a local web app is paths:
@@ -134,7 +134,7 @@ def _run() -> None:
         return
 
     threading.Timer(0.8, lambda: webbrowser.open(url)).start()
-    print(f"Gemini Vault running at {url}  (data: {DATA})")
+    print(f"Chatrove running at {url}  (data: {DATA})")
     sys.stdout.flush()
     try:
         httpd.serve_forever()

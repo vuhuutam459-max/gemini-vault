@@ -1,5 +1,5 @@
 /**
- * Gemini Vault Extractor — Console Edition
+ * Chatrove Extractor — Console Edition
  *
  * How to use:
  * 1. Open https://gemini.google.com/
@@ -22,7 +22,7 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   window.__geminiVaultCancel = false;
 
-  console.log("%c[Gemini Vault] v1.0.0 — Chat export", "color:#89b4fa;font-size:14px;font-weight:bold");
+  console.log("%c[Chatrove] v1.0.0 — Chat export", "color:#89b4fa;font-size:14px;font-weight:bold");
   console.log("[GV] To cancel: window.__geminiVaultCancel = true");
 
   // ── Tokens ──

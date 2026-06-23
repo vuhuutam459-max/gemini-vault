@@ -1,4 +1,4 @@
-# Gemini Vault — Python dependencies
+# Chatrove — Python dependencies
 # ============================================================
 # The CORE (import, search, viewer, export) needs NO dependencies —
 # it runs on the Python 3.10+ standard library

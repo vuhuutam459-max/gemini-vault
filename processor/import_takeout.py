@@ -1,7 +1,7 @@
 """
 import_takeout.py
 =================
-Bridge: Takeout ZIP -> Gemini Vault SQLite.
+Bridge: Takeout ZIP -> Chatrove SQLite.
 
 Scans Google Takeout ZIP archives, finds Gemini data
 (JSON logs, My Activity HTML, Canvas documents) and imports
@@ -543,7 +543,7 @@ def main():
         print(f"No ZIP files found in: {search_path}")
         return
 
-    print(f"Gemini Vault -- Import from Takeout")
+    print(f"Chatrove -- Import from Takeout")
     print(f"Found {len(zips)} ZIP(s) in {search_path}")
     print()
 
